@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gzcm"
+dynamic = ["version"]
+description = 'Manage gazebo simulations using docker'
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Quinn Thibeault", email = "quinn.thibeault96@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "attrs",
+    "docker",
+    "pyzmq",
+]
+
+[project.urls]
+Documentation = "https://github.com/cpslab-asu/gzcm#readme"
+Issues = "https://github.com/cpslab-asu/gzcm/issues"
+Source = "https://github.com/cpslab-asu/gzcm"
+
+[tool.hatch.version]
+path = "src/gzcm/__about__.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+    "click",
+]
+
+[tool.hatch.envs.default.scripts]
+simulation = "python3 src/runner.py {args}"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+    "mypy>=1.0.0",
+]
+
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/gzcm tests}"
+
+[tool.coverage.run]
+source_pkgs = ["gzcm", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/gzcm/__about__.py",
+]
+
+[tool.coverage.paths]
+gzcm = ["src/gzcm", "*/gzcm/src/gzcm"]
+tests = ["tests", "*/gzcm/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
