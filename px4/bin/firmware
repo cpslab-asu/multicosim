@@ -1,0 +1,6 @@
+#!/usr/bin/bash
+
+ROOT=${APP_ROOT:-/app}
+PYTHON=$ROOT/.venv/bin/python3
+
+${PYTHON} ${ROOT}/src/firmware.py $@
