@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 click = "*"
+lxml = "*"
 
 [dev-packages]
 gzcm = {file = "..", editable = true}

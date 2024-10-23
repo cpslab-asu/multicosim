@@ -6,9 +6,9 @@ import subprocess
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 from types import FrameType
-from xml.etree import ElementTree as etree
 
 import click
+import lxml.etree as xml
 
 
 @dataclass(frozen=True)
@@ -17,19 +17,32 @@ class Config:
     world_path: pathlib.Path
     step_size: float
 
-    def create_world(self, *, engine: etree.Element) -> pathlib.Path:
+    def create_world(self, *, engine: xml.Element) -> pathlib.Path:
         with self.base_path.open("rb") as file:
-            sdf = etree.parse(file)
+            parser = xml.XMLParser(strip_cdata=False)
+            sdf = xml.parse(file, parser)
 
-        for elem in sdf.iter("world"):
-            elem.attrib["name"] = self.world_path.stem
+        world = sdf.find("world")
 
-        for elem in sdf.iter("physics"):
-            for child in elem.iter("max_step_size"):
-                child.text = f"{self.step_size}"
+        if world is None:
+            raise ValueError()
 
-            elem.attrib["type"] = engine.tag
-            elem.append(engine)
+        world.attrib["name"] = self.world_path.stem
+        physics = world.find("physics")
+
+        if physics is None:
+            physics = xml.Element("physics")
+            world.append(physics)
+
+        physics.attrib["type"] = engine.tag
+        step_size = physics.find("max_step_size")
+
+        if step_size is None:
+            step_size = xml.SubElement(physics, "max_step_size")
+            physics.append(step_size)
+
+        step_size.text = f"{self.step_size}"
+        physics.append(engine)
 
         with self.world_path.open("wb") as file:
             sdf.write(file)
@@ -37,7 +50,7 @@ class Config:
         return self.world_path.resolve()
 
 
-def run_gazebo(ctx: click.Context, *, engine: etree.Element):
+def run_gazebo(ctx: click.Context, *, engine: xml.Element):
     config = ctx.find_object(Config)
 
     if not config:
@@ -85,11 +98,11 @@ ODESolver: TypeAlias = Literal["quick", "world"]
 @click.option("-s", "--solver", type=click.Choice(["quick", "world"]), default="quick")
 @click.option("-i", "--iterations", type=int, default=50)
 def ode(ctx: click.Context, solver: ODESolver, iterations: int):
-    engine_elem = etree.Element("ode")
-    solver_elem = etree.SubElement(engine_elem, "solver")
-    type_elem = etree.SubElement(solver_elem, "type")
+    engine_elem = xml.Element("ode")
+    solver_elem = xml.SubElement(engine_elem, "solver")
+    type_elem = xml.SubElement(solver_elem, "type")
     type_elem.text = solver
-    iters_elem = etree.SubElement(solver_elem, "iters")
+    iters_elem = xml.SubElement(solver_elem, "iters")
     iters_elem.text = f"{iterations}"
     
     run_gazebo(ctx, engine=engine_elem)
@@ -102,9 +115,9 @@ DartSolver: TypeAlias = Literal["dantzig", "pgs"]
 @click.pass_context
 @click.option("-s", "--solver", type=click.Choice(["dantzig", "pgs"]), default="dantzig")
 def dart(ctx: click.Context, solver: DartSolver):
-    engine_elem = etree.Element("dart")
-    solver_elem = etree.SubElement(engine_elem, "solver")
-    type_elem = etree.SubElement(solver_elem, "solver_type")
+    engine_elem = xml.Element("dart")
+    solver_elem = xml.SubElement(engine_elem, "solver")
+    type_elem = xml.SubElement(solver_elem, "solver_type")
     type_elem.text = solver
 
     run_gazebo(ctx, engine=engine_elem)
@@ -114,9 +127,9 @@ def dart(ctx: click.Context, solver: DartSolver):
 @click.pass_context
 @click.option("-i", "--iterations", type=int, default=50)
 def bullet(ctx: click.Context, iterations: int):
-    engine_elem = etree.Element("bullet")
-    solver_elem = etree.SubElement(engine_elem, "solver")
-    type_elem = etree.SubElement(solver_elem, "iters")
+    engine_elem = xml.Element("bullet")
+    solver_elem = xml.SubElement(engine_elem, "solver")
+    type_elem = xml.SubElement(solver_elem, "iters")
     type_elem.text = f"{iterations}"
 
     run_gazebo(ctx, engine=engine_elem)
@@ -125,7 +138,7 @@ def bullet(ctx: click.Context, iterations: int):
 @gazebo.command("simbody")
 @click.pass_context
 def simbody(ctx: click.Context):
-    run_gazebo(ctx, engine=etree.Element("simbody"))
+    run_gazebo(ctx, engine=xml.Element("simbody"))
 
 
 if __name__ == "__main__":
