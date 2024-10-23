@@ -7,11 +7,12 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y gz-harmo
 ENV GZ_ROOT=/opt/gazebo
 
 RUN mkdir ${GZ_ROOT}
-COPY ./gazebo/requirements.txt ${GZ_ROOT}
-COPY ./gazebo/src/ ${GZ_ROOT}/src/
-COPY ./gazebo/bin/ ${GZ_ROOT}/bin/
-
 WORKDIR ${GZ_ROOT}
+COPY ./gazebo/Pipfile ./gazebo/Pipfile.lock ./
+
 RUN mkdir .venv
-RUN pipenv install
+RUN pipenv sync
+
+COPY ./gazebo/src/ ./src/
+COPY ./gazebo/bin/ ./bin/
 RUN ln -s ${GZ_ROOT}/bin/gazebo /usr/local/bin/gazebo
