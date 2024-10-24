@@ -1,15 +1,19 @@
-FROM cpslabasu/gazebo-base:harmonic
+ARG GZCM_VERSION=0.1.0
+FROM ghcr.io/cpslab-asu/gzcm/gzcm:$GZCM_VERSION
 
-ARG PX4_VERSION=1.15.0
+LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/gzcm
+LABEL org.opencontainers.image.description="GZCM image with PX4 firmware"
+LABEL org.opencontainers.image.license=BSD-3-Clause
 
 ENV PX4_ROOT=/opt/px4-autopilot
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y git
 
-RUN git clone https://github.com/px4/px4-autopilot $PX4_ROOT
+RUN git clone https://github.com/px4/px4-autopilot ${PX4_ROOT}
 
 WORKDIR $PX4_ROOT
 
+ARG PX4_VERSION=1.15.0
 RUN git checkout v${PX4_VERSION}
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y \
@@ -41,25 +45,16 @@ RUN python3 -m pip install -r ./Tools/setup/requirements.txt
 RUN python3 -m pip install empy==3.3.4
 RUN make px4_sitl
 
-# Install Pipenv
-RUN python3 -m venv /opt/pipenv
-RUN /opt/pipenv/bin/pip install pipenv
-RUN ln -s /opt/pipenv/bin/pipenv /usr/local/bin/pipenv
-
-# Copy GZCM library source files
-COPY ./pyproject.toml ./README.md /opt/gzcm/
-COPY ./src/ /opt/gzcm/src/
-
 ENV APP_ROOT=/app
+WORKDIR $APP_ROOT
 
 # Copy px4 program source files
-COPY ./px4/Pipfile ./px4/Pipfile.lock $APP_ROOT/
-WORKDIR $APP_ROOT
+COPY ./Pipfile ./Pipfile.lock ./
 
 RUN mkdir .venv
 RUN pipenv sync --site-packages
 RUN .venv/bin/pip install /opt/gzcm
 
-COPY ./px4/src/ $APP_ROOT/src/
-COPY ./px4/bin/ $APP_ROOT/bin/
-RUN ln -s /app/bin/firmware /usr/local/bin/firmware
+COPY ./src/ ./src/
+COPY ./bin/ ./bin/
+RUN ln -s ${APP_ROOT}/bin/firmware /usr/local/bin/firmware

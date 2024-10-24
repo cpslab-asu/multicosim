@@ -1,5 +1,9 @@
 FROM ubuntu:22.04
 
+LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/gzcm
+LABEL org.opencontainers.image.description="Base image for other GZCM images"
+LABEL org.opencontainers.image.license=BSD-3-Clause
+
 # Install dependencies for adding OSRF Apt repository
 RUN apt-get update && apt-get install -y \
     curl \

@@ -1,18 +1,22 @@
 PX4_VERSION ?= 1.15.0
 GZ_VERSION ?= harmonic
+GZCM_VERSION = $(shell hatch version)
 
-all:
+all: base gazebo gzcm px4-firmware px4-gazebo
 
 base:
-	docker build --file gazebo/base.Dockerfile --tag cpslabasu/gz-base:${GZ_VERSION} .
+	make -C gazebo base
 
-gazebo: base
-	docker build --file gazebo/gazebo.Dockerfile --tag cpslabasu/gazebo:${GZ_VERSION} --build-arg GZ_VERSION=${GZ_VERSION} .
+gazebo:
+	make -C gazebo gazebo
 
-px4-firmware: base
-	docker build --file px4/firmware.Dockerfile --tag cpslabasu/px4-firmware:${PX4_VERSION} --build-arg PX4_VERSION=${PX4_VERSION} .
+gzcm: base
+	docker build --file gzcm.Dockerfile --tag ghcr.io/cpslab-asu/gzcm/gzcm:${GZCM_VERSION} .
 
-px4-gazebo: gazebo
-	docker build --file px4/gazebo.Dockerfile --tag cpslabasu/px4-gazebo:${GZ_VERSION} --build-arg GZ_VERSION=${GZ_VERSION} .
+px4-firmware:
+	make -C px4 firmware
 
-.PHONY: base gazebo px4-firmware px4-gazebo
+px4-gazebo:
+	make -C px4 gazebo
+
+.PHONY: all base gazebo gzcm px4-firmware px4-gazebo

@@ -12,7 +12,8 @@ import zmq
 
 import gzcm.gazebo as gz
 
-GZ_IMG: Final[str] = "cpslabasu/px4-gazebo:harmonic"
+GZ_IMG: Final[str] = "ghcr.io/cpslab-asu/gzcm/px4/gazebo:harmonic"
+PX4_IMG: Final[str] = "ghcr.io/cpslab-asu/gzcm/px4/firmware:1.15.0"
 BASE: Final[Path] = Path("resources/worlds/default.sdf")
 WORLD: Final[Path] = Path("/tmp/generated.sdf")
 
@@ -102,7 +103,7 @@ class Firmware(gz.Host):
 @contextmanager
 def firmware(*, client: Client) -> Generator[Firmware, None, None]:
     container = client.containers.run(
-        image="cpslabasu/px4-firmware:1.15.0",
+        image=PX4_IMG,
         command="firmware --verbose",
         detach=True,
         ports={"5555/tcp": None, "5556/tcp": None},
