@@ -48,7 +48,7 @@ targets if you cannot download the images.
 Since this library is built using **Hatch**, we can utilize the environment management
 functionality to help simply running the examples. Each example has a hatch
 [`script`](https://hatch.pypa.io/latest/config/environment/overview/#scripts) that can be executed
-by running the command `hatch run <script>`. For example, the *px4* example is run using the
-command `hatch run px4`.
+by running the command `hatch run examples:<script>`. For example, the *px4* example is run using
+the command `hatch run examples:px4`.
 
 <!-- vim: set colorcolumn=100: -->
