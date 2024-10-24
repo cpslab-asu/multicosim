@@ -8,7 +8,7 @@ REGISTRY := ghcr.io/cpslab-asu/gzcm
 all: wheel images
 
 wheel:
-	hatch build wheel
+	hatch build
 
 base:
 	docker build --file base.Dockerfile --tag $(REGISTRY)/base:22.04 .
