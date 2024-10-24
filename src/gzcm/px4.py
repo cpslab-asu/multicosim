@@ -23,17 +23,32 @@ if TYPE_CHECKING:
 
 
 class Model(IntEnum):
+    """PX4 Vehicle model to use for simulation.
+
+    The X500 is a light-weight quadrotor aircraft model.
+    """
+
     X500 = 0
 
 
 @attrs.frozen()
 class Waypoint:
+    """A position in a mission plan for a PX4-controlled vehicle.
+
+    Args:
+        lat: The latitude to achieve
+        lon: The longitude to achieve
+        alt: The altitude to achieve
+    """
+
     lat: float
     lon: float
     alt: float
 
 
 def _waypoints() -> list[Waypoint]:
+    """The default set of waypoints for a mission."""
+
     return [
         Waypoint(47.398039859999997, 8.5455725400000002, 25),
         Waypoint(47.398036222362471, 8.5450146439425509, 25),
@@ -43,6 +58,14 @@ def _waypoints() -> list[Waypoint]:
 
 @attrs.frozen()
 class Config:
+    """Configuration parameters for a simulated PX4-controlled vehicle.
+
+    Args:
+        model: The vehicle model to use for the simulation
+        waypoints: The mission for the vehicle to execute during the simulation
+        world: The name of the Gazebo world
+    """
+
     model: Model = attrs.field(default=Model.X500)
     waypoints: list[Waypoint] = attrs.field(factory=_waypoints)
     world: str = attrs.field(default="generated")
@@ -50,12 +73,16 @@ class Config:
 
 @attrs.frozen()
 class Pose:
+    """The pose of the PX4 vehicle in meters."""
+
     x: float
     y: float
     z: float
 
 
 class PortMapping(TypedDict):
+    """A Docker port binding mapping."""
+
     HostPort: str
     HostIp: str
 
@@ -72,12 +99,25 @@ def _get_host_port(mappings: list[PortMapping]) -> int:
 
 @attrs.frozen()
 class Ports:
+    """The bound ports for the PX4 container.
+
+    Args:
+        config: The port of the socket listening for the configuration message
+        pose: The port of the socket publishing the vehicle pose messages
+    """
+
     config: int = attrs.field(converter=_get_host_port)
     pose: int = attrs.field(converter=_get_host_port)
 
 
 @attrs.frozen()
 class Firmware(gz.Host):
+    """A PX4 controller executing in a docker container.
+
+    Args:
+        container: The firmware container
+    """
+    
     container: Container
 
     @property
@@ -89,6 +129,12 @@ class Firmware(gz.Host):
 
     @property
     def ports(self) -> Ports:
+        """The bound ports of the PX4 container.
+
+        Returns:
+            The host ports of the PX4 container
+        """
+
         config_mappings: list[PortMapping] = []
         pose_mappings: list[PortMapping] = []
 
@@ -102,6 +148,12 @@ class Firmware(gz.Host):
 
 @contextmanager
 def firmware(*, client: Client) -> Generator[Firmware, None, None]:
+    """Create and execute a PX4 simulation.
+
+    Args:
+        client: The docker client to use to create the container
+    """
+
     container = client.containers.run(
         image=PX4_IMG,
         command="firmware --verbose",
@@ -179,6 +231,20 @@ def simulate(
     client: Client | None = None,
     context: zmq.Context | None = None,
 ) -> list[Pose]:
+    """Execute a simulation using the PX4 using the given configuration.
+
+    Args:
+        px4cfg: The configuration for the PX4 system
+        gzcfg: The configuration for the simulator
+        container: The existing PX4 container to use instead of creating a new one
+        client: The docker client to use, if any
+        context: The ZeroMQ context to use, if any
+
+    Returns:
+        A list of poses representing the position of the vehicle in meters over the
+        course of the mission provided in the PX4 configuration.
+    """
+
     if not client:
         client = docker.from_env()
 
