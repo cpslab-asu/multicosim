@@ -76,8 +76,8 @@ async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handle
 
     await drone.mission.upload_mission(plan)
 
-    async for health in drone.telemetry.health():
-        if health.is_global_position_ok and health.is_home_position_ok:
+    async for ok in drone.telemetry.health_all_ok():
+        if ok:
             break
 
     await drone.action.arm()
