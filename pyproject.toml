@@ -39,12 +39,15 @@ Source = "https://github.com/cpslab-asu/gzcm"
 path = "src/gzcm/__about__.py"
 
 [tool.hatch.envs.default]
+dependencies = []
+
+[tool.hatch.envs.examples]
 dependencies = [
     "click",
 ]
 
-[tool.hatch.envs.default.scripts]
-simulation = "python3 src/runner.py {args}"
+[tool.hatch.envs.examples.scripts]
+px4 = "python3 examples/px4.py {args}"
 
 [tool.hatch.envs.types]
 extra-dependencies = [
