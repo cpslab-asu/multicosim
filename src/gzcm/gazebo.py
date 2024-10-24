@@ -73,15 +73,15 @@ class Dart(Backend):
         solution if one exists.
         """
 
-        DANZIG = 0
+        DANTZIG = 0
         PGS = 1
 
-    solver: Solver = Solver.DANZIG
+    solver: Solver = Solver.DANTZIG
 
     @property
     def args(self) -> str:
-        if self.solver is Dart.Solver.DANZIG:
-            solver = "danzig"
+        if self.solver is Dart.Solver.DANTZIG:
+            solver = "dantzig"
         else:
             solver = "pgs"
 
