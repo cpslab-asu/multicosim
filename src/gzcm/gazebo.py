@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Protocol, TypeAlias
 import docker
 import docker.models.containers
 
+import gzcm.docker
+
 if TYPE_CHECKING:
     Client: TypeAlias = docker.DockerClient
     Container: TypeAlias = docker.models.containers.Container
@@ -181,9 +183,10 @@ def gazebo(
     if not client:
         client = docker.from_env()
 
+    image_ = gzcm.docker.ensure_image(image, client=client)
     cmd = f"gazebo --base {base} --world {world} {config.args}"
     container = client.containers.run(
-        image=image,
+        image=image_,
         command=cmd,
         detach=True,
         network_mode=f"container:{host.name}"

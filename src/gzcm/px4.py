@@ -11,6 +11,7 @@ import docker
 import docker.models.containers
 import zmq
 
+import gzcm.docker
 import gzcm.gazebo as gz
 
 GZ_IMG: Final[str] = "ghcr.io/cpslab-asu/gzcm/px4/gazebo:harmonic"
@@ -158,8 +159,9 @@ def firmware(*, client: Client) -> Generator[Firmware, None, None]:
         client: The docker client to use to create the container
     """
 
+    image = gzcm.docker.ensure_image(PX4_IMG, client=client)
     container = client.containers.run(
-        image=PX4_IMG,
+        image=image,
         command="firmware --verbose",
         detach=True,
         ports={"5555/tcp": None, "5556/tcp": None},
