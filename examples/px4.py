@@ -11,14 +11,15 @@ import gzcm.gazebo as gz
 @click.command("px4")
 @click.option("-c", "--container", default=None)
 @click.option("-v", "--verbose", is_flag=True)
-def px4_example(container: str | None, verbose: bool):
+@click.option("--rm", "--remove", "remove", is_flat=True)
+def px4_example(container: str | None, verbose: bool, remove: bool):
     if verbose:
         logging.basicConfig()
         logging.getLogger("gzcm").setLevel(logging.DEBUG)
 
     px4cfg = px4.Config()
     gzcfg = gz.Config()
-    poses = px4.simulate(px4cfg, gzcfg, container=container)
+    poses = px4.simulate(px4cfg, gzcfg, container=container, remove=remove)
 
     pprint.pprint(poses)
 
