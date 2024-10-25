@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from enum import IntEnum
+from logging import NullHandler, getLogger
 from pathlib import Path
 from typing import Final, Generator, TypeAlias, TypedDict, TYPE_CHECKING
 
@@ -16,6 +17,9 @@ GZ_IMG: Final[str] = "ghcr.io/cpslab-asu/gzcm/px4/gazebo:harmonic"
 PX4_IMG: Final[str] = "ghcr.io/cpslab-asu/gzcm/px4/firmware:1.15.0"
 BASE: Final[Path] = Path("resources/worlds/default.sdf")
 WORLD: Final[Path] = Path("/tmp/generated.sdf")
+
+logger = getLogger("gzcm.px4")
+logger.addHandler(NullHandler())
 
 if TYPE_CHECKING:
     Client: TypeAlias = docker.DockerClient
@@ -258,7 +262,11 @@ def simulate(
 
     with fwctx as fw:
         with gz.gazebo(gzcfg, fw, image=GZ_IMG, base=BASE, world=Path(f"/tmp/{px4cfg.world}.sdf"), client=client):
+            logger.debug("Running simulation...")
+
             poses = _simulate(px4cfg, fw.ports, context=context)
             poses = list(poses)
+
+            logger.debug("Simulation complete.")
 
     return poses
