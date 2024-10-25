@@ -152,7 +152,7 @@ class Firmware(gz.Host):
 
 
 @contextmanager
-def firmware(*, client: Client) -> Generator[Firmware, None, None]:
+def firmware(*, client: Client, remove: bool = False) -> Generator[Firmware, None, None]:
     """Create and execute a PX4 simulation.
 
     Args:
@@ -178,6 +178,10 @@ def firmware(*, client: Client) -> Generator[Firmware, None, None]:
 
         if container.status == "running":
             container.kill()
+            container.wait()
+
+        if remove:
+            container.remove()
 
 
 @contextmanager
@@ -236,6 +240,7 @@ def simulate(
     container: str | None = None,
     client: Client | None = None,
     context: zmq.Context | None = None,
+    remove: bool = False,
 ) -> list[Pose]:
     """Execute a simulation using the PX4 using the given configuration.
 
@@ -260,10 +265,12 @@ def simulate(
     if container:
         fwctx = _find_firmware(container, client=client)
     else:
-        fwctx = firmware(client=client)
+        fwctx = firmware(client=client, remove=remove)
+
+    world = Path(f"/tmp/{px4cfg.world}.sdf")
 
     with fwctx as fw:
-        with gz.gazebo(gzcfg, fw, image=GZ_IMG, base=BASE, world=Path(f"/tmp/{px4cfg.world}.sdf"), client=client):
+        with gz.gazebo(gzcfg, fw, image=GZ_IMG, base=BASE, world=world, client=client, remove=remove):
             logger.debug("Running simulation...")
 
             poses = _simulate(px4cfg, fw.ports, context=context)

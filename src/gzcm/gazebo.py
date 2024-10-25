@@ -195,8 +195,11 @@ def gazebo(
     try:
         yield Gazebo(container)
     finally:
-        container.kill()
-        container.wait()
+        container.reload()
+
+        if container.status == "running":
+            container.kill()
+            container.wait()
 
         if remove:
             container.remove()
