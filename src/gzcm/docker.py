@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from logging import NullHandler, getLogger
 from typing import TypeAlias, TYPE_CHECKING
 
