@@ -49,11 +49,12 @@ ENV APP_ROOT=/app
 WORKDIR $APP_ROOT
 
 # Copy px4 program source files
-COPY ./Pipfile ./Pipfile.lock ./
+COPY ./Pipfile ./Pipfile.lock mavsdk.patch ./
 
 RUN mkdir .venv
 RUN pipenv sync --site-packages
 RUN .venv/bin/pip install /opt/gzcm
+RUN patch .venv/lib/python3.10/site-packages/mavsdk/system.py mavsdk.patch
 
 COPY ./src/ ./src/
 COPY ./bin/ ./bin/
