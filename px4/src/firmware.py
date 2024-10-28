@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import atexit
 import logging
 import math
 import subprocess
-import sys
-import traceback
 import typing
 
 import click
@@ -69,7 +66,7 @@ def create_handler(socket: zmq.Socket) -> Handler:
     return handler
 
 
-async def execute_mission(node: gz.transport13.Node, plan: mission.MissionPlan, world: str, handler: Handler):
+async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handler):
     logger = logging.getLogger("px4.mission")
     logger.addHandler(logging.NullHandler())
     drone = mavsdk.System()
@@ -82,18 +79,14 @@ async def execute_mission(node: gz.transport13.Node, plan: mission.MissionPlan, 
 
     await drone.mission.upload_mission(plan)
 
-    # async for ok in drone.telemetry.health_all_ok():
-    #     if ok:
-    #         break
+    async for ok in drone.telemetry.health_all_ok():
+        if ok:
+            break
 
-    try:
-        await drone.action.arm()
-    except mavsdk.action.ActionError:
-        logger.error("Failed to arm drone!")
-        sys.exit(1)
-
+    await drone.action.arm()
     await drone.mission.start_mission()
 
+    node = gz.transport13.Node()
     topic = f"/world/{world}/pose/info"
     opts = gz.transport13.SubscribeOptions()
     opts.msgs_per_sec = 1
@@ -130,7 +123,6 @@ def firmware(verbose: bool, config_port: int, publisher_port: int):
         logger.debug("Configuration received. Starting mission...")
         mission = create_mission(config)
         model = gz_model_name(config.model)
-        node = gz.transport13.Node()
         env = f"PX4_GZ_STANDALONE=1 PX4_SIM_MODEL={model} PX4_GZ_WORLD={config.world}"
         cmd = f"{env} /opt/px4-autopilot/build/px4_sitl_default/bin/px4"
 
@@ -142,22 +134,17 @@ def firmware(verbose: bool, config_port: int, publisher_port: int):
             executable="/bin/bash",
         )
 
-        def cleanup():
-            logger.debug("Shutting down PX4...")
-            process.kill()
-            process.wait()
-            logger.debug("Goodbye.")
-
-        atexit.register(cleanup)
-        
         with ctx.socket(zmq.PUB) as socket:
             with socket.bind(f"tcp://*:{publisher_port}"):
-                asyncio.run(execute_mission(node, mission, config.world, create_handler(socket)), debug=True)
-                socket.send_pyobj(None)
-                logger.debug("Mission completed.")
-
-        sys.exit(0)
-
+                try:
+                    asyncio.run(execute_mission(mission, config.world, create_handler(socket)), debug=True)
+                    socket.send_pyobj(None)
+                    logger.debug("Mission completed.")
+                finally:
+                    logger.debug("Shutting down PX4...")
+                    process.kill()
+                    process.wait()
+                    logger.debug("Goodbye.")
 
 
 if __name__ == "__main__":
