@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from enum import IntEnum
 from logging import NullHandler, getLogger
 from pathlib import Path
+from types import NoneType
 from typing import Final, Generator, TypeAlias, TypedDict, TYPE_CHECKING
 
 import attrs
@@ -180,7 +181,9 @@ def firmware(*, client: Client, remove: bool = False) -> Generator[Firmware, Non
             container.kill()
             container.wait()
 
-        if remove:
+        status_code = int(container.attrs['State']['ExitCode'])
+
+        if remove and status_code == 0:
             container.remove()
 
 
@@ -217,20 +220,36 @@ def _find_firmware(name: str, *, client: Client) -> Generator[Firmware, None, No
         pass
 
 
-def _simulate(px4cfg: Config, ports: Ports, *, context: zmq.Context) -> Generator[Pose, None, None]:
+def _recv_pose(container: Container, socket: zmq.Socket) -> Pose | None:
+    while True:
+        container.reload()
+
+        if container.status == "exited":
+            raise RuntimeError("Container exited without completing mission. Please check container logs for more information.")
+
+        try:
+            pose = socket.recv_pyobj(zmq.NOBLOCK)
+        except zmq.ZMQError:
+            continue
+
+        if not isinstance(pose, (Pose, NoneType)):
+            raise TypeError(f"Unknown message type {type(pose)} received from firmware.")
+
+        return pose
+
+
+def _simulate(px4cfg: Config, fw: Firmware, *, context: zmq.Context) -> Generator[Pose, None, None]:
+    ports = fw.ports
+
     with _pose_socket(ports.pose, context=context) as psock:
         with _config_socket(ports.config, context=context) as csock:
             csock.send_pyobj(px4cfg)
 
-        pose = psock.recv_pyobj()
+        pose = _recv_pose(fw.container, psock)
 
-        while pose:
-            if not isinstance(pose, Pose):
-                raise ValueError()
-
+        while pose is not None:
             yield pose
-
-            pose = psock.recv_pyobj()
+            pose = _recv_pose(fw.container, psock)
 
 
 def simulate(
@@ -273,7 +292,7 @@ def simulate(
         with gz.gazebo(gzcfg, fw, image=GZ_IMG, base=BASE, world=world, client=client, remove=remove):
             logger.debug("Running simulation...")
 
-            poses = _simulate(px4cfg, fw.ports, context=context)
+            poses = _simulate(px4cfg, fw, context=context)
             poses = list(poses)
 
             logger.debug("Simulation complete.")
