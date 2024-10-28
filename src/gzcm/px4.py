@@ -220,12 +220,20 @@ def _find_firmware(name: str, *, client: Client) -> Generator[Firmware, None, No
         pass
 
 
+class SimulationError(Exception):
+    pass
+
+
+class MessageError(SimulationError):
+    pass
+
+
 def _recv_pose(container: Container, socket: zmq.Socket) -> Pose | None:
     while True:
         container.reload()
 
         if container.status == "exited":
-            raise RuntimeError("Container exited without completing mission. Please check container logs for more information.")
+            raise SimulationError("Container exited without completing mission. Please check container logs for more information.")
 
         try:
             pose = socket.recv_pyobj(zmq.NOBLOCK)
@@ -233,7 +241,7 @@ def _recv_pose(container: Container, socket: zmq.Socket) -> Pose | None:
             continue
 
         if not isinstance(pose, (Pose, NoneType)):
-            raise TypeError(f"Unknown message type {type(pose)} received from firmware.")
+            raise MessageError(f"Unknown message type {type(pose)} received from firmware.")
 
         return pose
 
