@@ -46,10 +46,13 @@ def gz_model_name(model: px4.Model) -> str:
     raise ValueError()
 
 
-def find_pose(msg: pose_v.Pose_V) -> px4.Pose:
+def find_state(msg: pose_v.Pose_V) -> px4.State:
     for pose in msg.pose:
         if pose.name == "x500_0":
-            return px4.Pose(pose.position.x, pose.position.y, pose.position.z)
+            pose = px4.Pose(pose.position.x, pose.position.y, pose.position.z)
+            time = msg.header.stamp.sec + msg.header.stamp.nsec / 1e9
+
+            return px4.State(time, pose)
 
     raise ValueError()
 
@@ -61,7 +64,7 @@ class Handler(typing.Protocol):
 
 def create_handler(socket: zmq.Socket) -> Handler:
     def handler(msg: pose_v.Pose_V):
-        socket.send_pyobj(find_pose(msg))
+        socket.send_pyobj(find_state(msg))
 
     return handler
 

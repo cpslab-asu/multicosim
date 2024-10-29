@@ -86,6 +86,14 @@ class Pose:
     z: float
 
 
+@attrs.frozen()
+class State:
+    """The pose of the PX4 vehicle in meters, along with the associated time-stamp."""
+
+    time: float
+    pose: Pose
+
+
 class PortMapping(TypedDict):
     """A Docker port binding mapping."""
 
@@ -228,7 +236,7 @@ class MessageError(SimulationError):
     pass
 
 
-def _recv_pose(container: Container, socket: zmq.Socket) -> Pose | None:
+def _recv_state(container: Container, socket: zmq.Socket) -> State | None:
     while True:
         container.reload()
 
@@ -236,28 +244,31 @@ def _recv_pose(container: Container, socket: zmq.Socket) -> Pose | None:
             raise SimulationError("Container exited without completing mission. Please check container logs for more information.")
 
         try:
-            pose = socket.recv_pyobj(zmq.NOBLOCK)
+            state = socket.recv_pyobj(zmq.NOBLOCK)
+
+            if not isinstance(state, (State, NoneType)):
+                raise MessageError(f"Unknown message type {type(state)} received from firmware.")
+
+            return state
         except zmq.ZMQError:
-            continue
-
-        if not isinstance(pose, (Pose, NoneType)):
-            raise MessageError(f"Unknown message type {type(pose)} received from firmware.")
-
-        return pose
+            pass
 
 
-def _simulate(px4cfg: Config, fw: Firmware, *, context: zmq.Context) -> Generator[Pose, None, None]:
+def _simulate(px4cfg: Config, fw: Firmware, *, context: zmq.Context) -> Generator[State, None, None]:
     ports = fw.ports
 
     with _pose_socket(ports.pose, context=context) as psock:
         with _config_socket(ports.config, context=context) as csock:
             csock.send_pyobj(px4cfg)
 
-        pose = _recv_pose(fw.container, psock)
+        state = _recv_state(fw.container, psock)
 
-        while pose is not None:
-            yield pose
-            pose = _recv_pose(fw.container, psock)
+        while state is not None:
+            yield state
+            state = _recv_state(fw.container, psock)
+
+
+Trace: TypeAlias = dict[float, Pose]
 
 
 def simulate(
@@ -268,7 +279,7 @@ def simulate(
     client: Client | None = None,
     context: zmq.Context | None = None,
     remove: bool = False,
-) -> list[Pose]:
+) -> Trace:
     """Execute a simulation using the PX4 using the given configuration.
 
     Args:
@@ -300,9 +311,10 @@ def simulate(
         with gz.gazebo(gzcfg, fw, image=GZ_IMG, base=BASE, world=world, client=client, remove=remove):
             logger.debug("Running simulation...")
 
-            poses = _simulate(px4cfg, fw, context=context)
-            poses = list(poses)
+            trace = {
+                state.time: state.pose for state in _simulate(px4cfg, fw, context=context)
+            }
 
             logger.debug("Simulation complete.")
 
-    return poses
+    return trace
