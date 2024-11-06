@@ -133,15 +133,6 @@ class Config:
         return f"--step-size {self.step_size} {self.backend.args}"
 
 
-class Host(Protocol):
-    """Container to attach simulation networking stack to."""
-
-    @property
-    def name(self) -> str:
-        """Name of the networking host container."""
-        ...
-
-
 @dataclass()
 class Gazebo:
     """Gazebo simulation executed in a docker container.
@@ -153,10 +144,14 @@ class Gazebo:
     container: Container
 
 
+class GazeboError(Exception):
+    pass
+
+
 @contextmanager
 def gazebo(
     config: Config,
-    host: Host,
+    host: Container,
     *,
     image: str = "ghcr.io/cpslab-asu/gzcm/gazebo:harmonic",
     base: Path = Path("resources/world/default.sdf"),
@@ -182,6 +177,14 @@ def gazebo(
 
     if not client:
         client = docker.from_env()
+
+    # Reload container until it defines a name
+    while not host.name:
+        host.reload()
+
+    # Ensure host container is running before trying to attach
+    if host.status != "running":
+        raise GazeboError("Host container is not running")
 
     image_ = gzcm.docker.ensure_image(image, client=client)
     cmd = f"gazebo --base {base} --world {world} {config.args}"
