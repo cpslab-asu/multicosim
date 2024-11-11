@@ -10,7 +10,6 @@ from typing import Protocol, TypeAlias
 import docker
 import docker.models.containers
 
-import gzcm.docker
 import gzcm.containers
 
 Client: TypeAlias = docker.DockerClient
