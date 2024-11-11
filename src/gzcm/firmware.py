@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Literal, TypeAlias, TypedDict, Final
+from typing import Literal, TypeAlias, TypedDict, Final
 from types import NoneType
 
 import attrs
 import docker.models.containers
 import zmq
 
-if TYPE_CHECKING:
-    Container: TypeAlias = docker.models.containers.Container
+import gzcm.containers
 
+Client: TypeAlias = docker.DockerClient
+Container: TypeAlias = docker.models.containers.Container
 PortProtocol: TypeAlias = Literal["tcp", "udp"]
 
 
@@ -141,6 +142,46 @@ class Firmware:
                     break
                 
                 yield state
+
+    @classmethod
+    @contextmanager
+    def find(
+        cls,
+        name: str,
+        *,
+        client: Client,
+        ports: Ports | None = None
+    ) -> Generator[Firmware, None, None]:
+        try:
+            with gzcm.containers.find(name, client=client) as container:
+                yield cls(container=container, ports=Ports() if ports is None else ports)
+        finally:
+            pass
+
+    @classmethod
+    @contextmanager
+    def start(
+        cls,
+        image: str,
+        *,
+        command: str,
+        ports: Ports,
+        client: Client,
+        remove: bool = False
+    ) -> Generator[Firmware, None, None]:
+        ctx = gzcm.containers.start(
+            image,
+            command=command,
+            ports={ports.config: "tcp", ports.pose: "tcp"},
+            remove=remove,
+            client=client
+        )
+
+        try:
+            with ctx as container:
+                yield cls(container, ports)
+        finally:
+            pass
 
 
 @attrs.frozen()
