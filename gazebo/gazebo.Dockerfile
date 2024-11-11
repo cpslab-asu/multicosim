@@ -5,7 +5,8 @@ LABEL org.opencontainers.image.description="Base gazebo for derived GZCM gazebo 
 LABEL org.opencontainers.image.license=BSD-3-Clause
 
 ARG GZ_VERSION=harmonic
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y gz-${GZ_VERSION}
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y gz-${GZ_VERSION}
 
 ENV GZ_ROOT=/opt/gazebo
 
