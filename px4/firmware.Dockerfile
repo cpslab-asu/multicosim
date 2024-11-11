@@ -7,7 +7,8 @@ LABEL org.opencontainers.image.license=BSD-3-Clause
 
 ENV PX4_ROOT=/opt/px4-autopilot
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y git
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y git
 
 RUN git clone https://github.com/px4/px4-autopilot ${PX4_ROOT}
 
@@ -16,29 +17,30 @@ WORKDIR $PX4_ROOT
 ARG PX4_VERSION=1.15.0
 RUN git checkout v${PX4_VERSION}
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    file \
-    g++ \
-    gcc \
-    pkg-config \
-    libxml2-dev \
-    libxml2-utils \
-    make \
-    ninja-build \
-    python3 \
-    python3-dev \
-    python3-pip \
-    python3-venv \
-    python3-gz-transport13 \
-    python3-gz-msgs10 \
-    unzip \
-    zip \
-    bc \
-    libgz-transport13-dev \
-    libgz-msgs10-dev \
-    ;
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        build-essential \
+        cmake \
+        file \
+        g++ \
+        gcc \
+        pkg-config \
+        libxml2-dev \
+        libxml2-utils \
+        make \
+        ninja-build \
+        python3 \
+        python3-dev \
+        python3-pip \
+        python3-venv \
+        python3-gz-transport13 \
+        python3-gz-msgs10 \
+        unzip \
+        zip \
+        bc \
+        libgz-transport13-dev \
+        libgz-msgs10-dev \
+        ;
 
 # Install build dependencies and build PX4 firmware
 RUN python3 -m pip install -r ./Tools/setup/requirements.txt
