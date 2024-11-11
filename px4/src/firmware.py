@@ -8,6 +8,7 @@ import typing
 
 import click
 import gzcm.px4 as px4
+import gzcm.firmware as fw
 import gz.transport13
 import gz.msgs10.pose_v_pb2 as pose_v
 import mavsdk
@@ -35,8 +36,8 @@ def create_mission_item(waypoint: px4.Waypoint) -> mission.MissionItem:
     )
 
 
-def create_mission(config: px4.Config) -> mission.MissionPlan:
-    return mission.MissionPlan([create_mission_item(wp) for wp in config.waypoints])
+def create_mission(config: px4.StartMsg) -> mission.MissionPlan:
+    return mission.MissionPlan([create_mission_item(wp) for wp in config.mission])
 
 
 def gz_model_name(model: px4.Model) -> str:
@@ -46,13 +47,13 @@ def gz_model_name(model: px4.Model) -> str:
     raise ValueError()
 
 
-def find_state(msg: pose_v.Pose_V) -> px4.State:
+def find_state(msg: pose_v.Pose_V) -> fw.State:
     for pose in msg.pose:
         if pose.name == "x500_0":
             pose = px4.Pose(pose.position.x, pose.position.y, pose.position.z)
             time = msg.header.stamp.sec + msg.header.stamp.nsec / 1e9
 
-            return px4.State(time, pose)
+            return fw.State(time, pose)
 
     raise ValueError()
 
@@ -118,15 +119,15 @@ def firmware(verbose: bool, config_port: int, publisher_port: int):
             with socket.bind(f"tcp://*:{config_port}"):
                 logger.debug("Waiting for configuration message...")
 
-                config = socket.recv_pyobj()
+                msg = socket.recv_pyobj()
 
-                if not isinstance(config, px4.Config):
-                    raise TypeError()
+                if not isinstance(msg, px4.StartMsg):
+                    raise TypeError(f"Unknown start message type {type(msg)}. Expected gzcm.px4.StartMsg")
 
         logger.debug("Configuration received. Starting mission...")
-        mission = create_mission(config)
-        model = gz_model_name(config.model)
-        env = f"PX4_GZ_STANDALONE=1 PX4_SIM_MODEL={model} PX4_GZ_WORLD={config.world}"
+        mission = create_mission(msg)
+        model = gz_model_name(msg.model)
+        env = f"PX4_GZ_STANDALONE=1 PX4_SIM_MODEL={model} PX4_GZ_WORLD={msg.world}"
         cmd = f"{env} /opt/px4-autopilot/build/px4_sitl_default/bin/px4"
 
         logger.debug(f"Running PX4 firmware using command: {cmd}")
@@ -140,7 +141,7 @@ def firmware(verbose: bool, config_port: int, publisher_port: int):
         with ctx.socket(zmq.PUB) as socket:
             with socket.bind(f"tcp://*:{publisher_port}"):
                 try:
-                    asyncio.run(execute_mission(mission, config.world, create_handler(socket)), debug=True)
+                    asyncio.run(execute_mission(mission, msg.world, create_handler(socket)), debug=True)
                     socket.send_pyobj(None)
                     logger.debug("Mission completed.")
                 finally:
