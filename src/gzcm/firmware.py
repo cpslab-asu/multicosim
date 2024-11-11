@@ -72,7 +72,7 @@ def _pose_subscriber(msg: object, pose_port: int, config_port: int, *, context: 
         with psock.connect(f"tcp://localhost:{pose_port}"):
             psock.setsockopt(zmq.SUBSCRIBE, b"")
 
-            with context.socket(zmq.SUB) as csock:
+            with context.socket(zmq.REQ) as csock:
                 with csock.connect(f"tcp://localhost:{config_port}"):
                     csock.send_pyobj(msg)
 
