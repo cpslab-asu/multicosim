@@ -5,16 +5,16 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, TypeAlias
+from typing import Protocol, TypeAlias
 
 import docker
 import docker.models.containers
 
 import gzcm.docker
+import gzcm.containers
 
-if TYPE_CHECKING:
-    Client: TypeAlias = docker.DockerClient
-    Container: TypeAlias = docker.models.containers.Container
+Client: TypeAlias = docker.DockerClient
+Container: TypeAlias = docker.models.containers.Container
 
 
 class Backend(Protocol):
@@ -115,7 +115,7 @@ class Simbody(Backend):
 
 
 @dataclass()
-class Config:
+class Gazebo:
     """Gazebo simulation configuration.
 
     Args:
@@ -134,7 +134,7 @@ class Config:
 
 
 @dataclass()
-class Gazebo:
+class Simulation:
     """Gazebo simulation executed in a docker container.
     
     Args:
@@ -150,7 +150,7 @@ class GazeboError(Exception):
 
 @contextmanager
 def gazebo(
-    config: Config,
+    config: Gazebo,
     host: Container,
     *,
     image: str = "ghcr.io/cpslab-asu/gzcm/gazebo:harmonic",
@@ -158,7 +158,7 @@ def gazebo(
     world: Path = Path("/tmp/generated.sdf"),
     client: Client | None = None,
     remove: bool = False
-) -> Generator[Gazebo, None, None]:
+) -> Generator[Simulation, None, None]:
     """Execute a gazebo simulation and attach it to the given host container.
 
     Args:
@@ -186,23 +186,11 @@ def gazebo(
     if host.status != "running":
         raise GazeboError("Host container is not running")
 
-    image_ = gzcm.docker.ensure_image(image, client=client)
     cmd = f"gazebo --base {base} --world {world} {config.args}"
-    container = client.containers.run(
-        image=image_,
-        command=cmd,
-        detach=True,
-        network_mode=f"container:{host.name}"
-    )
+    ctx = gzcm.containers.start(image, command=cmd, host=host, remove=remove, client=client)
 
-    try:
-        yield Gazebo(container)
-    finally:
-        container.reload()
-
-        if container.status == "running":
-            container.kill()
-            container.wait()
-
-        if remove:
-            container.remove()
+    with ctx as container:
+        try:
+            yield Simulation(container)
+        finally:
+            pass
