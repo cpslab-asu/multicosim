@@ -125,14 +125,14 @@ class Ports:
 
 
 @attrs.frozen()
-class Firmware(gz.Host):
+class Firmware:
     """A PX4 controller executing in a docker container.
 
     Args:
         container: The firmware container
     """
     
-    container: Container
+    container: Container = attrs.field()
 
     @property
     def name(self) -> str:
@@ -177,8 +177,6 @@ def firmware(*, client: Client, remove: bool = False) -> Generator[Firmware, Non
         tty=True,
         stdin_open=True,
     )
-
-    container.reload()
 
     try:
         yield Firmware(container)
