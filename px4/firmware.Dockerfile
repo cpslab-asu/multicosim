@@ -1,18 +1,16 @@
-ARG GZCM_VERSION=0.1.0
-FROM ghcr.io/cpslab-asu/gzcm/gzcm:$GZCM_VERSION
+FROM ghcr.io/cpslab-asu/gzcm/base:22.04
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/gzcm
 LABEL org.opencontainers.image.description="GZCM image with PX4 firmware"
 LABEL org.opencontainers.image.license=BSD-3-Clause
 
-ENV PX4_ROOT=/opt/px4-autopilot
-
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y git
 
+ENV PX4_ROOT=/opt/px4-autopilot
 RUN git clone https://github.com/px4/px4-autopilot ${PX4_ROOT}
 
-WORKDIR $PX4_ROOT
+WORKDIR ${PX4_ROOT}
 
 ARG PX4_VERSION=1.15.0
 RUN git checkout v${PX4_VERSION}
@@ -43,21 +41,24 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
         ;
 
 # Install build dependencies and build PX4 firmware
-RUN python3 -m pip install -r ./Tools/setup/requirements.txt
-RUN python3 -m pip install empy==3.3.4
-RUN make px4_sitl
+RUN python3 -m venv .venv
+RUN .venv/bin/pip install -r ./Tools/setup/requirements.txt
+RUN .venv/bin/pip install empy==3.3.4
+RUN . .venv/bin/activate && make px4_sitl
 
 ENV APP_ROOT=/app
-WORKDIR $APP_ROOT
+WORKDIR ${APP_ROOT}
 
 # Copy px4 program source files
 COPY ./Pipfile ./Pipfile.lock mavsdk.patch ./
-
-RUN mkdir .venv
-RUN pipenv sync --site-packages
-RUN .venv/bin/pip install /opt/gzcm
+RUN PIPENV_VENV_IN_PROJECT=1 pipenv sync --site-packages
 RUN patch .venv/lib/python3.10/site-packages/mavsdk/system.py mavsdk.patch
 
-COPY ./src/ ./src/
+COPY --from=gzcm ./pyproject.toml ./README.md /opt/gzcm/
+COPY --from=gzcm ./src/ /opt/gzcm/src/
+RUN .venv/bin/pip install /opt/gzcm
+
 COPY ./bin/ ./bin/
 RUN ln -s ${APP_ROOT}/bin/firmware /usr/local/bin/firmware
+
+COPY ./src/ ./src/

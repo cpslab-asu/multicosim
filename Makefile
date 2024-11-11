@@ -4,7 +4,7 @@ GZCM_VERSION := $(shell hatch version)
 REGISTRY := ghcr.io/cpslab-asu/gzcm
 PLATFORMS := linux/amd64,linux/arm64
 
-.PHONY: all wheel images base gazebo gzcm px4-firmware px4-gazebo
+.PHONY: all wheel images base gazebo px4-firmware px4-gazebo
 
 all: wheel images
 
@@ -21,20 +21,13 @@ gazebo: base
 		--tag $(REGISTRY)/gazebo:$(GZ_VERSION) \
 		gazebo
 
-gzcm: base
-	docker build \
-		--file gzcm.Dockerfile \
-		--platform $(PLATFORMS) \
-		--tag $(REGISTRY)/gzcm:$(GZCM_VERSION) \
-		.
-
-px4-firmware: gzcm
+px4-firmware: base
 	docker build \
 		--file px4/firmware.Dockerfile \
 		--platform $(PLATFORMS) \
-		--build-arg GZCM_VERSION=$(GZCM_VERSION) \
 		--build-arg PX4_VERSION=$(PX4_VERSION) \
-		--tag $(REGISTRY)/px4/firmware:$(PX4_VERSION) \
+		--build-context gzcm=. \
+		--tag $(REGISTRY)/px4/firmware:$(GZCM_VERSION) \
 		px4
 
 px4-gazebo: gazebo
@@ -45,5 +38,5 @@ px4-gazebo: gazebo
 		--tag $(REGISTRY)/px4/gazebo:$(GZ_VERSION) \
 		px4
 
-images: base gazebo gzcm px4-firmware px4-gazebo
+images: base gazebo px4-firmware px4-gazebo
 
