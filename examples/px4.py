@@ -15,13 +15,13 @@ import gzcm.gazebo as gz
 def px4_example(container: str | None, verbose: bool, remove: bool):
     if verbose:
         logging.basicConfig()
-        logging.getLogger("gzcm").setLevel(logging.DEBUG)
+        logging.getLogger("examples.px4").setLevel(logging.DEBUG)
 
-    px4cfg = px4.Config()
-    gzcfg = gz.Config()
-    poses = px4.simulate(px4cfg, gzcfg, container=container, remove=remove)
+    system = px4.PX4()
+    gazebo = gz.Gazebo()
+    trace = system.simulate(px4.DEFAULT_MISSION, gazebo, container=container, remove=remove)
 
-    pprint.pprint(poses)
+    pprint.pprint(trace)
 
 
 if __name__ == "__main__":
