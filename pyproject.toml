@@ -75,3 +75,16 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.mypy]
+python_version = "3.10"
+
+[[tool.mypy.overrides]]
+module = [
+    "docker",
+    "docker.errors",
+    "docker.models",
+    "docker.models.containers",
+    "docker.models.images",
+]
+ignore_missing_imports = true
