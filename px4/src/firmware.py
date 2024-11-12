@@ -83,8 +83,15 @@ async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handle
 
     await drone.mission.upload_mission(plan)
 
-    async for ok in drone.telemetry.health_all_ok():
-        if ok:
+    async for health in drone.telemetry.health():
+        armable = all([
+            health.is_home_position_ok,
+            health.is_local_position_ok,
+            health.is_global_position_ok,
+            health.is_armable,
+        ])
+
+        if armable:
             break
 
     await drone.action.arm()
