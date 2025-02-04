@@ -9,8 +9,12 @@ all: wheel images
 wheel:
 	hatch build
 
-base: base.Dockerfile
+.cache/base: base.Dockerfile
 	docker build --file base.Dockerfile --platform $(PLATFORMS) --tag $(REGISTRY)/base:22.04 .
+	@mkdir -p .cache
+	@touch $@
+
+base: .cache/base
 
 gazebo: base
 	make -C gazebo image
@@ -18,6 +22,6 @@ gazebo: base
 px4: gazebo
 	make -C px4 images
 
-images: px4
+images: base gazebo px4
 
 .PHONY: all wheel base gazebo px4 images
