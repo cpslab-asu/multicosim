@@ -26,12 +26,12 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 
 ENV GZ_ROOT=/app
 COPY --from=venv /app ${GZ_ROOT}
-COPY ./src ./src
+COPY ./src ${GZ_ROOT}/src
 
 COPY <<EOF /usr/local/bin/gazebo
 #!/usr/bin/bash
 ${GZ_ROOT}/.venv/bin/python3 ${GZ_ROOT}/src/gazebo.py \$@
 EOF
 
-RUN chmod +x /usr/local/bin/gazebo
+RUN chmod +x-w /usr/local/bin/gazebo
 CMD ["/usr/local/bin/gazebo"]
