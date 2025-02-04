@@ -15,11 +15,7 @@ base:
 	docker build --file base.Dockerfile --platform $(PLATFORMS) --tag $(REGISTRY)/base:22.04 .
 
 gazebo: base
-	docker build \
-		--file gazebo/gazebo.Dockerfile \
-		--platform $(PLATFORMS) \
-		--tag $(REGISTRY)/gazebo:$(GZ_VERSION) \
-		gazebo
+	make -C gazebo image
 
 px4-firmware: base
 	docker build \
