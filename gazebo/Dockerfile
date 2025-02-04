@@ -27,6 +27,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 ENV GZ_ROOT=/app
 COPY --from=venv /app ${GZ_ROOT}
 COPY ./src ${GZ_ROOT}/src
+COPY ./resources ${GZ_ROOT}/resources
+WORKDIR /app
 
 COPY <<EOF /usr/local/bin/gazebo
 #!/usr/bin/bash
