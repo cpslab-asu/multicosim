@@ -1,6 +1,0 @@
-#!/usr/bin/bash
-
-ROOT_DIR=/opt/gazebo
-PYTHON=${ROOT_DIR}/.venv/bin/python3
-
-${PYTHON} ${ROOT_DIR}/src/gazebo.py $@
