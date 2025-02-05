@@ -6,9 +6,10 @@ SOURCES := $(wildcard src/*.py) $(wildcard resources/worlds/*.sdf)
 image: .cache/gazebo
 
 .cache/gazebo: Dockerfile $(SOURCES)
-	docker build \
+	docker buildx build \
 		--platform $(PLATFORMS) \
 		--tag $(REGISTRY)/gazebo:$(GZ_VERSION) \
+		--load \
 		.
 	@mkdir -p .cache
 	@touch $@

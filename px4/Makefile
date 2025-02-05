@@ -10,11 +10,12 @@ images: gazebo firmware
 gazebo: .cache/gazebo
 
 .cache/gazebo: gazebo.Dockerfile
-	docker build \
+	docker buildx build \
 		--file gazebo.Dockerfile \
 		--platform $(PLATFORMS) \
 		--build-arg GZ_VERSION=$(GZ_VERSION) \
 		--tag $(REGISTRY)/px4/gazebo:$(GZ_VERSION) \
+		--load \
 		.
 	@mkdir -p .cache
 	@touch $@
@@ -22,12 +23,13 @@ gazebo: .cache/gazebo
 firmware: .cache/firmware
 
 .cache/firmware: firmware.Dockerfile $(SOURCES)
-	docker build \
+	docker buildx build \
 		--file firmware.Dockerfile \
 		--platform $(PLATFORMS) \
 		--build-arg PX4_VERSION=$(PX4_VERSION) \
 		--build-context gzcm=.. \
 		--tag $(REGISTRY)/px4/firmware:$(GZCM_VERSION) \
+		--load \
 		.
 	@mkdir -p .cache
 	@touch $@

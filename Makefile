@@ -10,7 +10,12 @@ wheel:
 	hatch build
 
 .cache/base: base.Dockerfile
-	docker build --file base.Dockerfile --platform $(PLATFORMS) --tag $(REGISTRY)/base:22.04 .
+	docker buildx build \
+		--file base.Dockerfile \
+		--platform $(PLATFORMS) \
+		--tag $(REGISTRY)/base:22.04 \
+		--load \
+		.
 	@mkdir -p .cache
 	@touch $@
 
