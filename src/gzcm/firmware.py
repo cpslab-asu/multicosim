@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Literal, TypeAlias, TypedDict, Final
-from types import NoneType
+from typing import TYPE_CHECKING, Literal, TypeAlias, TypeVar, TypedDict, Final, Generic
 
 import attrs
 import docker.models.containers
@@ -11,22 +10,12 @@ import zmq
 
 import gzcm.containers
 
-Client: TypeAlias = docker.DockerClient
-Container: TypeAlias = docker.models.containers.Container
+if TYPE_CHECKING:
+    from docker import DockerClient as Client
+    from docker.models.containers import Container
+
 PortProtocol: TypeAlias = Literal["tcp", "udp"]
-
-
-@attrs.frozen()
-class Ports:
-    """The bound ports for the PX4 container.
-
-    Args:
-        config: The port of the socket listening for the configuration message
-        pose: The port of the socket publishing the vehicle pose messages
-    """
-
-    config: int = attrs.field(default=5555)
-    pose: int = attrs.field(default=5556)
+DEFAULT_PORT: Final[int] = 5556
 
 
 @attrs.frozen()
@@ -52,35 +41,6 @@ class SimulationError(Exception):
 
 class MessageError(SimulationError):
     pass
-
-
-@attrs.frozen()
-class PoseSubscriber:
-    socket: zmq.Socket
-
-    def recv_state(self) -> State | None:
-        state = self.socket.recv_pyobj(zmq.NOBLOCK)
-
-        if not isinstance(state, (State, NoneType)):
-            raise MessageError(f"Unknown message type {type(state)} received from firmware.")
-
-        return state
-
-
-@contextmanager
-def _pose_subscriber(msg: object, pose_port: int, config_port: int, *, context: zmq.Context) -> Generator[PoseSubscriber, None, None]:
-    with context.socket(zmq.SUB) as psock:
-        with psock.connect(f"tcp://localhost:{pose_port}"):
-            psock.setsockopt(zmq.SUBSCRIBE, b"")
-
-            with context.socket(zmq.REQ) as csock:
-                with csock.connect(f"tcp://localhost:{config_port}"):
-                    csock.send_pyobj(msg)
-
-            try:
-                yield PoseSubscriber(psock)
-            finally:
-                pass
 
 
 def _has_port_mappings(container: Container, *ports: int, protocol: PortProtocol = "tcp") -> bool:
@@ -110,51 +70,59 @@ def _get_host_port(container: Container, port: int, *, protocol: PortProtocol = 
     raise ValueError("Could not find host port binding")
 
 
-def _ports() -> Ports:
-    return Ports()
+MsgT = TypeVar("MsgT")
 
 
 @attrs.frozen()
-class Firmware:
-    container: Container = attrs.field()
-    ports: Ports = attrs.field(factory=_ports)
+class Success:
+    states: list[State]
 
-    def run(self, msg: object, *, context: zmq.Context) -> Generator[State, None, None]:
-        while not _has_port_mappings(self.container, self.ports.config, self.ports.pose):
+
+@attrs.frozen()
+class Failure:
+    error: Exception
+
+
+@attrs.frozen()
+class Firmware(Generic[MsgT]):
+    container: Container = attrs.field()
+    port: int = attrs.field()
+
+    def run(self, msg: MsgT, *, context: zmq.Context) -> list[State]:
+        while not _has_port_mappings(self.container, self.port):
             self.container.reload()
 
-        pose_port = _get_host_port(self.container, self.ports.pose)
-        config_port = _get_host_port(self.container, self.ports.config)
+        port = _get_host_port(self.container, self.port)
 
-        with _pose_subscriber(msg, pose_port, config_port, context=context) as sub:
-            while True:
-                self.container.reload()
+        with context.socket(zmq.REQ) as socket:
+            with socket.connect(f"tcp://localhost:{port}"):
+                socket.send_pyobj(msg)
 
-                if self.container.status == "exited":
-                    raise SimulationError("Container exited without completing mission. Please check container logs for more information.")
+                while True:
+                    self.container.reload()
 
-                try:
-                    state = sub.recv_state()
-                except zmq.ZMQError:
-                    continue
+                    if self.container.status == "exited":
+                        raise SimulationError("Container exited without completing mission. Please check container logs for more information.")
 
-                if state is None:
-                    break
-                
-                yield state
+                    try:
+                        result = socket.recv_pyobj()
+                    except zmq.ZMQError:
+                        continue
+
+                    if isinstance(result, Success):
+                        return result.states
+
+                    if isinstance(result, Failure):
+                        raise result.error
+
+                    raise TypeError("Unsupported type {type(result)} received from firmware. Expected [Success, Failure].")
 
     @classmethod
     @contextmanager
-    def find(
-        cls,
-        name: str,
-        *,
-        client: Client,
-        ports: Ports | None = None
-    ) -> Generator[Firmware, None, None]:
+    def find(cls, name: str, *, client: Client, port: int = DEFAULT_PORT) -> FirmwareGenerator[MsgT]:
         try:
             with gzcm.containers.find(name, client=client) as container:
-                yield cls(container=container, ports=Ports() if ports is None else ports)
+                yield cls(container=container, port=port)
         finally:
             pass
 
@@ -165,23 +133,26 @@ class Firmware:
         image: str,
         *,
         command: str,
-        ports: Ports,
         client: Client,
+        port: int = DEFAULT_PORT,
         remove: bool = False
-    ) -> Generator[Firmware, None, None]:
+    ) -> FirmwareGenerator[MsgT]:
         ctx = gzcm.containers.start(
             image,
             command=command,
-            ports={ports.config: "tcp", ports.pose: "tcp"},
+            ports={port: "tcp"},
             remove=remove,
             client=client
         )
 
         try:
             with ctx as container:
-                yield cls(container, ports)
+                yield cls(container, port)
         finally:
             pass
+
+
+FirmwareGenerator:  TypeAlias = Generator[Firmware[MsgT], None, None]
 
 
 @attrs.frozen()
@@ -200,6 +171,7 @@ class Waypoint:
 
 
 Mission: TypeAlias = list[Waypoint]
+
 DEFAULT_MISSION: Final[Mission] = [
     Waypoint(47.398039859999997, 8.5455725400000002, 25),
     Waypoint(47.398036222362471, 8.5450146439425509, 25),
