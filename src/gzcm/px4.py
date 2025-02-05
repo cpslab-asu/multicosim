@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from enum import IntEnum
 from logging import NullHandler, getLogger
 from pathlib import Path
@@ -12,7 +13,7 @@ import zmq
 
 from gzcm import gazebo as gz
 from gzcm.__about__ import __version__
-from gzcm.firmware import Firmware, Ports, Waypoint, Pose
+from gzcm.firmware import Firmware, State, Waypoint, Pose
 
 Client: TypeAlias = docker.DockerClient
 Container: TypeAlias = docker.models.containers.Container
@@ -22,7 +23,7 @@ Trace: TypeAlias = dict[float, Pose]
 GZ_IMG: Final[str] = "ghcr.io/cpslab-asu/gzcm/px4/gazebo:harmonic"
 PX4_IMG: Final[str] = f"ghcr.io/cpslab-asu/gzcm/px4/firmware:{__version__}"
 BASE: Final[Path] = Path("resources/worlds/default.sdf")
-WORLD: Final[Path] = Path("/tmp/generated.sdf")
+PORT: Final[int] = 5556
 DEFAULT_MISSION: Final[Mission] = [
     Waypoint(47.398039859999997, 8.5455725400000002, 25),
     Waypoint(47.398036222362471, 8.5450146439425509, 25),
@@ -39,7 +40,7 @@ class Model(IntEnum):
     X500 = 0
 
 
-def firmware(name: str | None = None, *, client: Client, remove: bool = False) -> ContextManager[Firmware]:
+def firmware(name: str | None = None, *, client: Client, remove: bool = False) -> ContextManager[Firmware[StartMsg]]:
     """Create and execute a PX4 simulation.
 
     Args:
@@ -49,7 +50,13 @@ def firmware(name: str | None = None, *, client: Client, remove: bool = False) -
     if name is not None:
         return Firmware.find(name, client=client)
 
-    return Firmware.start(PX4_IMG, command="firmware --verbose", ports=Ports(), client=client, remove=remove)
+    return Firmware.start(
+        image=PX4_IMG,
+        command=f"firmware --port {PORT} --verbose",
+        port=PORT,
+        client=client,
+        remove=remove,
+    )
 
 
 @attrs.frozen()
@@ -98,7 +105,8 @@ def simulate(
         with gz.gazebo(gazebo, fw.container, image=GZ_IMG, base=BASE, world=path, remove=remove, client=client):
             logger.debug("Running simulation...")
 
-            states = fw.run(StartMsg(mission, model, world), context=context)
+            msg = StartMsg(mission, model, world)
+            states = fw.run(msg, context=context)
             trace = {state.time: state.pose for state in states}
 
             logger.debug("Simulation complete.")
@@ -115,6 +123,7 @@ class PX4:
         waypoints: The mission for the vehicle to execute during the simulation
         world: The name of the Gazebo world
     """
+
     DEFAULT_MISSION = DEFAULT_MISSION
     Model = Model
 
