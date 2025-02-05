@@ -58,7 +58,7 @@ RUN patch .venv/lib/python3.10/site-packages/mavsdk/system.py mavsdk.patch
 ENV GZCM_ROOT=/opt/gzcm
 COPY --from=gzcm ./pyproject.toml ./README.md ${GZCM_ROOT}/
 COPY --from=gzcm ./src/ ${GZCM_ROOT}/src/
-RUN .venv/bin/pip3 install ${GZCM_ROOT}
+RUN .venv/bin/pip3 install --ignore-installed ${GZCM_ROOT}
 
 FROM ghcr.io/cpslab-asu/gzcm/base:22.04 AS firmware
 
@@ -79,13 +79,12 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 COPY --from=build /opt/px4-autopilot /opt/px4-autopilot
 
 ENV APP_ROOT=/app
-WORKDIR ${APP_ROOT}
-
 COPY <<EOF /usr/local/bin/firmware
 #!/usr/bin/bash
 ${APP_ROOT}/.venv/bin/python3 ${APP_ROOT}/src/firmware.py \$@
 EOF
 RUN chmod +x-w /usr/local/bin/firmware
 
-COPY --from=venv /app {APP_ROOT}
+COPY --from=venv /app ${APP_ROOT}
+WORKDIR ${APP_ROOT}
 COPY ./src/ ./src/
