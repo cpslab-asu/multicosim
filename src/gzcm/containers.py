@@ -66,7 +66,7 @@ def start(
 
         result = container.wait()
         exit_code = int(result["StatusCode"])
-        good_exit = exit_code != 0 and exit_code != 143
+        good_exit = exit_code == 0 or exit_code == 137
 
         if not good_exit:
             raise AbnormalExitError(cast(str, container.name), exit_code)  # Throw an error if the container exited unsuccessfully
