@@ -4,7 +4,9 @@ import asyncio
 import logging
 import math
 import subprocess
+import threading
 import typing
+import queue
 
 import click
 import gzcm.px4 as px4
@@ -58,16 +60,19 @@ def find_state(msg: pose_v.Pose_V) -> fw.State:
     raise ValueError()
 
 
-class Handler(typing.Protocol):
-    def __call__(self, __msg: pose_v.Pose_V) -> None:
-        ...
+class Handler:
+    def __init__(self):
+        self._states: list[fw.State] = []
+        self._lock = threading.Lock()
 
+    def __call__(self, msg: pose_v.Pose_V):
+        with self._lock:
+            self._states.append(find_state(msg))
 
-def create_handler(socket: zmq.Socket) -> Handler:
-    def handler(msg: pose_v.Pose_V):
-        socket.send_pyobj(find_state(msg))
-
-    return handler
+    @property
+    def states(self) -> list[fw.State]:
+        with self._lock:
+            return self._states.copy()
 
 
 async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handler):
@@ -112,9 +117,8 @@ async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handle
 
 @click.command("firmware")
 @click.option("-v", "--verbose", is_flag=True)
-@click.option("-c", "--config-port", type=int, default=5555)
-@click.option("-p", "--publisher-port", type=int, default=5556)
-def firmware(verbose: bool, config_port: int, publisher_port: int):
+@click.option("-p", "--port", type=int, default=5556)
+def firmware(verbose: bool, port: int):
     logger = logging.getLogger("px4.firmware")
     logger.addHandler(logging.NullHandler())
 
@@ -123,7 +127,7 @@ def firmware(verbose: bool, config_port: int, publisher_port: int):
 
     with zmq.Context() as ctx:
         with ctx.socket(zmq.REP) as socket:
-            with socket.bind(f"tcp://*:{config_port}"):
+            with socket.bind(f"tcp://*:{port}"):
                 logger.debug("Waiting for configuration message...")
 
                 msg = socket.recv_pyobj()
@@ -131,25 +135,24 @@ def firmware(verbose: bool, config_port: int, publisher_port: int):
                 if not isinstance(msg, px4.StartMsg):
                     raise TypeError(f"Unknown start message type {type(msg)}. Expected gzcm.px4.StartMsg")
 
-        logger.debug("Configuration received. Starting mission...")
-        mission = create_mission(msg)
-        model = gz_model_name(msg.model)
-        env = f"PX4_GZ_STANDALONE=1 PX4_SIM_MODEL={model} PX4_GZ_WORLD={msg.world}"
-        cmd = f"{env} /opt/px4-autopilot/build/px4_sitl_default/bin/px4"
+                logger.debug("Configuration received. Starting mission...")
+                mission = create_mission(msg)
+                model = gz_model_name(msg.model)
+                env = f"PX4_GZ_STANDALONE=1 PX4_SIM_MODEL={model} PX4_GZ_WORLD={msg.world}"
+                cmd = f"{env} /opt/px4-autopilot/build/px4_sitl_default/bin/px4"
 
-        logger.debug(f"Running PX4 firmware using command: {cmd}")
-        process = subprocess.Popen(
-            args=cmd,
-            cwd="/opt/px4-autopilot/build/px4_sitl_default/src/modules/simulation/gz_bridge",
-            shell=True,
-            executable="/bin/bash",
-        )
+                logger.debug(f"Running PX4 firmware using command: {cmd}")
+                process = subprocess.Popen(
+                    args=cmd,
+                    cwd="/opt/px4-autopilot/build/px4_sitl_default/src/modules/simulation/gz_bridge",
+                    shell=True,
+                    executable="/bin/bash",
+                )
 
-        with ctx.socket(zmq.PUB) as socket:
-            with socket.bind(f"tcp://*:{publisher_port}"):
                 try:
-                    asyncio.run(execute_mission(mission, msg.world, create_handler(socket)), debug=True)
-                    socket.send_pyobj(None)
+                    handler = Handler()
+                    asyncio.run(execute_mission(mission, msg.world, handler), debug=True)
+                    socket.send_pyobj(fw.Success(handler.states))
                     logger.debug("Mission completed.")
                 finally:
                     logger.debug("Shutting down PX4...")
