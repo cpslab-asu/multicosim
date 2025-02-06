@@ -88,3 +88,5 @@ RUN chmod +x-w /usr/local/bin/firmware
 COPY --from=venv /app ${APP_ROOT}
 WORKDIR ${APP_ROOT}
 COPY ./src/ ./src/
+
+CMD ["/usr/local/bin/firmware"]
