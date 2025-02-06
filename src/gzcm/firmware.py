@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Literal, TypeAlias, TypeVar, TypedDict, Final, Generic
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal, TypeAlias, TypeVar, TypedDict, Final, Generic, Protocol, ParamSpec, ContextManager
 
 import attrs
-import docker.models.containers
+import docker
 import zmq
 
 import gzcm.containers
+import gzcm.gazebo as gz
 
 if TYPE_CHECKING:
     from docker import DockerClient as Client
@@ -70,9 +73,6 @@ def _get_host_port(container: Container, port: int, *, protocol: PortProtocol = 
     raise ValueError("Could not find host port binding")
 
 
-MsgT = TypeVar("MsgT")
-
-
 @attrs.frozen()
 class Success:
     states: list[State]
@@ -81,78 +81,6 @@ class Success:
 @attrs.frozen()
 class Failure:
     error: Exception
-
-
-@attrs.frozen()
-class Firmware(Generic[MsgT]):
-    container: Container = attrs.field()
-    port: int = attrs.field()
-
-    def run(self, msg: MsgT, *, context: zmq.Context) -> list[State]:
-        while not _has_port_mappings(self.container, self.port):
-            self.container.reload()
-
-        port = _get_host_port(self.container, self.port)
-
-        with context.socket(zmq.REQ) as socket:
-            with socket.connect(f"tcp://localhost:{port}"):
-                socket.send_pyobj(msg)
-
-                while True:
-                    self.container.reload()
-
-                    if self.container.status == "exited":
-                        raise SimulationError("Container exited without completing mission. Please check container logs for more information.")
-
-                    try:
-                        result = socket.recv_pyobj()
-                    except zmq.ZMQError:
-                        continue
-
-                    if isinstance(result, Success):
-                        return result.states
-
-                    if isinstance(result, Failure):
-                        raise result.error
-
-                    raise TypeError("Unsupported type {type(result)} received from firmware. Expected [Success, Failure].")
-
-    @classmethod
-    @contextmanager
-    def find(cls, name: str, *, client: Client, port: int = DEFAULT_PORT) -> FirmwareGenerator[MsgT]:
-        try:
-            with gzcm.containers.find(name, client=client) as container:
-                yield cls(container=container, port=port)
-        finally:
-            pass
-
-    @classmethod
-    @contextmanager
-    def start(
-        cls,
-        image: str,
-        *,
-        command: str,
-        client: Client,
-        port: int = DEFAULT_PORT,
-        remove: bool = False
-    ) -> FirmwareGenerator[MsgT]:
-        ctx = gzcm.containers.start(
-            image,
-            command=command,
-            ports={port: "tcp"},
-            remove=remove,
-            client=client
-        )
-
-        try:
-            with ctx as container:
-                yield cls(container, port)
-        finally:
-            pass
-
-
-FirmwareGenerator:  TypeAlias = Generator[Firmware[MsgT], None, None]
 
 
 @attrs.frozen()
@@ -177,3 +105,152 @@ DEFAULT_MISSION: Final[Mission] = [
     Waypoint(47.398036222362471, 8.5450146439425509, 25),
     Waypoint(47.397825620791885, 8.5450092830163271, 25),
 ]
+
+P = ParamSpec("P")
+T = TypeVar("T")
+M = TypeVar("M", covariant=True)
+
+
+class Firmware(Generic[T]):
+    def __init__(self, client: Client, container: Container, socket: zmq.Socket):
+        self.container = container
+        self.socket = socket
+        self.client = client
+
+    def run(self, msg: T) -> list[State]:
+        self.socket.send_pyobj(msg)
+
+        while True:
+            self.container.reload()
+
+            if self.container.status == "exited":
+                raise SimulationError("Container exited without completing mission. Please check container logs for more information.")
+
+            try:
+                result = self.socket.recv_pyobj()
+            except zmq.ZMQError:
+                continue
+
+            if isinstance(result, Success):
+                return result.states
+
+            if isinstance(result, Failure):
+                raise result.error
+
+            raise TypeError(f"Unsupported type {type(result)} received from firmware. Expected [Success, Failure].")
+
+    def attach(
+        self,
+        gazebo: gz.Gazebo,
+        image: str,
+        world: Path,
+        template: Path,
+        *,
+        remove: bool = False
+    ) -> ContextManager[gz.Simulation]:
+        return gz.start(
+            config=gazebo,
+            host=self.container,
+            image=image,
+            base=template,
+            world=world,
+            client=self.client,
+            remove=remove,
+        )
+
+
+@dataclass()
+class FirmwareManager(Generic[M]):
+    client: Client | None
+    context: zmq.Context | None
+    firmware_image: str
+    command: str
+    port: int
+    remove: bool
+
+    @contextmanager
+    def start(self) -> Generator[Firmware[M], None, None]:
+        client = self.client or docker.from_env()
+        context = self.context or zmq.Context()
+        ctx = gzcm.containers.start(
+            client=client,
+            image=self.firmware_image,
+            command=self.command,
+            ports={self.port: "tcp"},
+            remove=self.remove,
+        )
+
+        try:
+            with ctx as container:
+                while not _has_port_mappings(container, self.port):
+                    container.reload()
+
+                port = _get_host_port(container, self.port)
+
+                with context.socket(zmq.REQ) as socket:
+                    with socket.connect(f"tcp://localhost:{port}"):
+                        yield Firmware(client, container, socket)
+        finally:
+            pass
+
+
+class MsgFactory(Protocol[P, M]):
+    def __call__(self, world: str, *args: P.args, **kwargs: P.kwargs) -> M:
+        ...
+
+
+@dataclass()
+class FirmwareWrapper(Generic[P, M], FirmwareManager[M]):
+    msg_factory: MsgFactory[P, M]
+    gazebo_image: str
+    world: Path
+    template: Path
+
+    def run(self, gazebo: gz.Gazebo, remove: bool = False, *args: P.args, **kwargs: P.kwargs) -> list[State]:
+        with self.start() as fw:
+            sim = fw.attach(
+                gazebo,
+                self.gazebo_image,
+                self.world,
+                self.template,
+                remove=remove,
+            )
+
+            with sim:
+                msg = self.msg_factory(self.world.stem, *args, **kwargs)
+                states = fw.run(msg)
+
+        return states
+
+
+class Decorator(Protocol):
+    def __call__(self, func: MsgFactory[P, M]) -> FirmwareWrapper[P, M]:
+        ...
+
+
+def manage(
+    firmware_image: str,
+    gazebo_image: str,
+    command: str,
+    port: int = 5556,
+    world: Path = Path("/tmp/generated.sdf"),
+    template: Path = Path("resources/worlds/default.sdf"),
+    remove: bool = False,
+    client: Client | None = None,
+    context: zmq.Context | None = None,
+) -> Decorator:
+    def decorator(func: MsgFactory[P, M]) -> FirmwareWrapper[P, M]:
+        return FirmwareWrapper(
+            client,
+            context,
+            firmware_image,
+            command,
+            port,
+            remove,
+            func,
+            gazebo_image,
+            world,
+            template,
+        )
+
+    return decorator
