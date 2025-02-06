@@ -3,6 +3,9 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Generator, Literal, TypeAlias, cast
 
+import docker.errors
+
+
 from . import images
 
 if TYPE_CHECKING:
@@ -29,6 +32,27 @@ class ContainerError(Exception):
 class AbnormalExitError(ContainerError):
     def __init__(self, name: str, exit_code: int):
         super().__init__(f"Container {name} exited abnormally with code {exit_code}. Please check the container logs.")
+
+
+def cleanup(container: Container, *, remove: bool):
+    container.reload()
+
+    while container.status != "exited":
+        try:
+            container.kill()
+        except docker.errors.APIError:
+            pass
+
+        container.reload()
+
+    result = container.wait()
+    exit_code = result["StatusCode"]
+    good_exit = exit_code == 0 or exit_code == 137
+
+    if not good_exit:
+        raise AbnormalExitError(cast(str, container.name), exit_code)  # Throw an error if the container exited unsuccessfully
+    elif remove:
+        container.remove()  # If the container exited successfully, remove if indicated
 
 
 @contextmanager
@@ -59,16 +83,4 @@ def start(
     try:
         yield container
     finally:
-        container.reload()
-
-        if container.status != "exited":
-            container.kill()
-
-        result = container.wait()
-        exit_code = int(result["StatusCode"])
-        good_exit = exit_code == 0 or exit_code == 137
-
-        if not good_exit:
-            raise AbnormalExitError(cast(str, container.name), exit_code)  # Throw an error if the container exited unsuccessfully
-        elif remove:
-            container.remove()  # If the container exited successfully, remove if indicated
+        cleanup(container, remove=remove)
