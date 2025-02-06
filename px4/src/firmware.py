@@ -47,7 +47,7 @@ def gz_model_name(model: px4.Model) -> str:
     raise ValueError()
 
 
-def find_state(msg: pose_v.Pose_V) -> fw.State:
+def find_state(msg: pose_v.Pose_V) -> px4.State:
     for pose in msg.pose:
         if pose.name == "x500_0":
             pose = px4.Pose(pose.position.x, pose.position.y, pose.position.z)
@@ -60,7 +60,7 @@ def find_state(msg: pose_v.Pose_V) -> fw.State:
 
 class Handler:
     def __init__(self):
-        self._states: list[fw.State] = []
+        self._states: list[px4.State] = []
         self._lock = threading.Lock()
 
     def __call__(self, msg: pose_v.Pose_V):
@@ -68,9 +68,9 @@ class Handler:
             self._states.append(find_state(msg))
 
     @property
-    def states(self) -> list[fw.State]:
+    def states(self) -> px4.States:
         with self._lock:
-            return self._states.copy()
+            return px4.States(self._states.copy())
 
 
 async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handler):
