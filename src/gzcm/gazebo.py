@@ -5,15 +5,15 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import Protocol, TypeAlias
+from typing import TYPE_CHECKING, Protocol
 
 import docker
-import docker.models.containers
 
 import gzcm.containers
 
-Client: TypeAlias = docker.DockerClient
-Container: TypeAlias = docker.models.containers.Container
+if TYPE_CHECKING:
+    from docker import DockerClient as Client
+    from docker.models.containers import Container
 
 
 class Backend(Protocol):
