@@ -5,8 +5,6 @@ import logging
 import math
 import subprocess
 import threading
-import typing
-import queue
 
 import click
 import gzcm.px4 as px4
@@ -55,7 +53,7 @@ def find_state(msg: pose_v.Pose_V) -> fw.State:
             pose = px4.Pose(pose.position.x, pose.position.y, pose.position.z)
             time = msg.header.stamp.sec + msg.header.stamp.nsec / 1e9
 
-            return fw.State(time, pose)
+            return px4.State(time, pose)
 
     raise ValueError()
 
