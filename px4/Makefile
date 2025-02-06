@@ -3,7 +3,7 @@ PLATFORMS ?= linux/amd64,linux/arm64
 GZ_VERSION ?= harmonic
 PX4_VERSION ?= 1.15.0
 GZCM_VERSION := $(shell hatch version)
-SOURCES := $(wildcard src/*.py)
+SOURCES := $(wildcard src/*.py) $(wildcard ../src/gzcm/*.py)
 
 images: gazebo firmware
 
