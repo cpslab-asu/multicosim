@@ -148,7 +148,7 @@ class GazeboError(Exception):
 
 
 @contextmanager
-def gazebo(
+def start(
     config: Gazebo,
     host: Container,
     *,
