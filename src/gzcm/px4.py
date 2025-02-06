@@ -1,62 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
 from enum import IntEnum
-from logging import NullHandler, getLogger
 from pathlib import Path
-from typing import ContextManager, Final, TypeAlias
+from typing import Final, TypeAlias
 
 import attrs
-import docker
-import docker.models.containers
-import zmq
 
 from gzcm import gazebo as gz
+from gzcm import firmware as fw
 from gzcm.__about__ import __version__
-from gzcm.firmware import Firmware, State, Waypoint, Pose
+from gzcm.firmware import Pose, State, Waypoint
 
-Client: TypeAlias = docker.DockerClient
-Container: TypeAlias = docker.models.containers.Container
-Mission: TypeAlias = list[Waypoint]
-Trace: TypeAlias = dict[float, Pose]
+Mission: TypeAlias = list[fw.Waypoint]
+Trace: TypeAlias = dict[float, fw.Pose]
 
-GZ_IMG: Final[str] = "ghcr.io/cpslab-asu/gzcm/px4/gazebo:harmonic"
-PX4_IMG: Final[str] = f"ghcr.io/cpslab-asu/gzcm/px4/firmware:{__version__}"
-BASE: Final[Path] = Path("resources/worlds/default.sdf")
 PORT: Final[int] = 5556
-DEFAULT_MISSION: Final[Mission] = [
-    Waypoint(47.398039859999997, 8.5455725400000002, 25),
-    Waypoint(47.398036222362471, 8.5450146439425509, 25),
-    Waypoint(47.397825620791885, 8.5450092830163271, 25),
-]
-
-
-class Model(IntEnum):
-    """PX4 Vehicle model to use for simulation.
-
-    The X500 is a light-weight quadrotor aircraft model.
-    """
-
-    X500 = 0
-
-
-def firmware(name: str | None = None, *, client: Client, remove: bool = False) -> ContextManager[Firmware[StartMsg]]:
-    """Create and execute a PX4 simulation.
-
-    Args:
-        client: The docker client to use to create the container
-    """
-
-    if name is not None:
-        return Firmware.find(name, client=client)
-
-    return Firmware.start(
-        image=PX4_IMG,
-        command=f"firmware --port {PORT} --verbose",
-        port=PORT,
-        client=client,
-        remove=remove,
-    )
 
 
 @attrs.frozen()
@@ -66,15 +24,22 @@ class StartMsg:
     world: str
 
 
+@fw.manage(
+    firmware_image=f"ghcr.io/cpslab-asu/gzcm/px4/firmware:{__version__}",
+    gazebo_image="ghcr.io/cpslab-asu/gzcm/px4/gazebo:harmonic",
+    command=f"/usr/local/bin/firmware --port {PORT} --verbose",
+    port=PORT,
+    template=Path("resources/worlds/default.sdf"),
+)
+def firmware(world: str, mission: Mission, model: Model) -> StartMsg:
+    return StartMsg(mission, model, world)
+
+
 def simulate(
     mission: Mission,
     model: Model,
-    world: str,
     gazebo: gz.Gazebo,
     *,
-    container: str | None = None,
-    client: Client | None = None,
-    context: zmq.Context | None = None,
     remove: bool = False,
 ) -> Trace:
     """Execute a simulation using the PX4 using the given configuration.
@@ -91,27 +56,15 @@ def simulate(
         course of the mission provided in the PX4 configuration.
     """
 
-    if not client:
-        client = docker.from_env()
+    states = firmware.run(gazebo, mission=mission, model=model, remove=remove)
+    return {state.time: state.pose for state in states}
 
-    if not context:
-        context = zmq.Context.instance()
 
-    path = Path(f"/tmp/{world}.sdf")
-    logger = getLogger("gzcm.px4")
-    logger.addHandler(NullHandler())
-
-    with firmware(container, client=client, remove=remove) as fw:
-        with gz.gazebo(gazebo, fw.container, image=GZ_IMG, base=BASE, world=path, remove=remove, client=client):
-            logger.debug("Running simulation...")
-
-            msg = StartMsg(mission, model, world)
-            states = fw.run(msg, context=context)
-            trace = {state.time: state.pose for state in states}
-
-            logger.debug("Simulation complete.")
-
-    return trace
+DEFAULT_MISSION: Final[Mission] = [
+    fw.Waypoint(47.398039859999997, 8.5455725400000002, 25),
+    fw.Waypoint(47.398036222362471, 8.5450146439425509, 25),
+    fw.Waypoint(47.397825620791885, 8.5450092830163271, 25),
+]
 
 
 @attrs.frozen()
@@ -124,29 +77,19 @@ class PX4:
         world: The name of the Gazebo world
     """
 
-    DEFAULT_MISSION = DEFAULT_MISSION
-    Model = Model
+    class Model(IntEnum):
+        """PX4 Vehicle model to use for simulation.
+
+        The X500 is a light-weight quadrotor aircraft model.
+        """
+
+        X500 = 0
 
     model: Model = attrs.field(default=Model.X500)
-    world: str = attrs.field(default="generated")
 
-    def simulate(
-        self,
-        mission: Mission,
-        gazebo: gz.Gazebo,
-        *,
-        remove: bool = False,
-        container: str | None = None,
-        client: Client | None = None,
-        context: zmq.Context | None = None,
-    ) -> Trace:
-        return simulate(
-            mission=mission,
-            model=self.model,
-            world=self.world,
-            gazebo=gazebo,
-            remove=remove,
-            container=container,
-            client=client,
-            context=context,
-        )
+    def simulate(self, gazebo: gz.Gazebo, mission: Mission | None = None, *, remove: bool = False) -> Trace:
+        return simulate(mission or DEFAULT_MISSION, self.model, gazebo, remove=remove)
+
+Model = PX4.Model
+
+__all__ = ["DEFAULT_MISSION", "Model", "Pose", "PX4", "State", "Waypoint", "simulate"]
