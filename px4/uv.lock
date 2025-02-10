@@ -2,6 +2,18 @@ version = 1
 requires-python = ">=3.10"
 
 [[package]]
+name = "aiogrpc"
+version = "1.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "grpcio" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e5/65/00e94dc69fccd7f1f829cc140ab285b1deb9e13a844a88be83d042ca3a78/aiogrpc-1.8.tar.gz", hash = "sha256:472155a52850bd4b9493a994079f9c12c65324f02fe6466e636470127fc32aaf", size = 6613 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/db/bd010b6fed762952142100da5707a769143af7a1795caa8d8bdff9d9ca85/aiogrpc-1.8-py3-none-any.whl", hash = "sha256:d01e6906927649646dcd938c7d46bf718f427473450db0af6343acc2ed2cfa4d", size = 10559 },
+]
+
+[[package]]
 name = "attrs"
 version = "25.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -243,35 +255,36 @@ wheels = [
 
 [[package]]
 name = "mavsdk"
-version = "3.0.1"
+version = "2.8.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "aiogrpc" },
     { name = "grpcio" },
     { name = "protobuf" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/2d/037f3273f51221ea8615b67f03bcca71f7cb8b2d2986c2ecf63999d69c3c/mavsdk-3.0.1-py3-none-linux_armv6l.whl", hash = "sha256:00f3e1da4c9fc8ac2c0fbe0227a5c1d082bfb107789943cf533b423502bd5519", size = 15901954 },
-    { url = "https://files.pythonhosted.org/packages/35/51/b5b10fcd3df23061a31fd893ddfb9877bd7220490000356b961a9ec3efaf/mavsdk-3.0.1-py3-none-linux_armv7l.whl", hash = "sha256:8caff9ddadec4738beca2424f30187a6055290d2eed2857da3d4362cfd5441a6", size = 15901781 },
-    { url = "https://files.pythonhosted.org/packages/01/7b/6da64cd4ab6abc7712f87d4170390a2b404890f94156668244defeec089a/mavsdk-3.0.1-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:ff5e53a0586561038c8a0d858487d6396584516cf88466258b5e6e007b026383", size = 11888055 },
-    { url = "https://files.pythonhosted.org/packages/b6/4b/633e2a6fa5f82187a9a8be15b800ad8ca666cb0af5f3f2a8a17a3afb2a62/mavsdk-3.0.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:56c63ddbe5bd22bf32b76d9f051cc2077cfa63bb83ef22460e5246f152b2f97a", size = 11769573 },
-    { url = "https://files.pythonhosted.org/packages/14/61/6e3cfb7f86497683c4eb2be1b06553d89241d3815a67e00a2f05aa3bc4a3/mavsdk-3.0.1-py3-none-manylinux2014_aarch64.whl", hash = "sha256:dcdc361f28a2e0c299ed22c14209fca7c6d3ed57561ad9345233722ba95e42da", size = 17464512 },
-    { url = "https://files.pythonhosted.org/packages/ea/0d/e5463516a66746f9dea9f5508cdbb25368caa6a2a66de813323bf0d8caa8/mavsdk-3.0.1-py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:57dafbbb0f842eda068309b00f4d80dd009c0fac71eefcae5e5a7cec8d501246", size = 14481001 },
-    { url = "https://files.pythonhosted.org/packages/71/5f/d1c1ef5fd1d0e37f5b130de8c4f1425b27dd56a1b06f7d0c6ddc9cf5fc8c/mavsdk-3.0.1-py3-none-win32.whl", hash = "sha256:b5a337ca1736d5e9c473f70cb2fe9fc58bacc639db1a37e2681924833aee206d", size = 362547 },
-    { url = "https://files.pythonhosted.org/packages/d4/6e/2f9f5eddf4561cf73badfb17958db9c973c94e704cdfe9c28cb3ef46d6ad/mavsdk-3.0.1-py3-none-win_amd64.whl", hash = "sha256:a56cbea77ba4a36449fd86fcb594f613c9ffe7241be13d6ebb0e5f022a3eefe1", size = 362547 },
+    { url = "https://files.pythonhosted.org/packages/3f/02/079e5455cb555a757d8d3c76c3b3036f62b370172b915d26e803a86bd9d3/mavsdk-2.8.4-py3-none-linux_armv6l.whl", hash = "sha256:3a7bf78b4e76d6c8eedcfc27fcdf3e8ffc7789474ada0ce585f685018a9a9353", size = 15071001 },
+    { url = "https://files.pythonhosted.org/packages/1a/ca/b3adb91e9a99267670319215588ab4189a46b9c27547a69ce2c78b09e0c8/mavsdk-2.8.4-py3-none-linux_armv7l.whl", hash = "sha256:9a8f128e52ba3971c141928d7a35b03fe27c213d23573d4bba790e079a25106d", size = 15070992 },
+    { url = "https://files.pythonhosted.org/packages/68/63/cc6624a5b55b9b8760f2855fc0ce9a799d948a60912b5a71a1a0d94678c2/mavsdk-2.8.4-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:aa24f78bacc630172c6fbbe5453ca503b884aef57e537a5751ae4aaaffeb4eba", size = 11019630 },
+    { url = "https://files.pythonhosted.org/packages/e8/28/2090fc18707377eb3db6b9c80e8049cf95829ca79081846459eab07d21ed/mavsdk-2.8.4-py3-none-macosx_11_0_arm64.whl", hash = "sha256:33bca5326dc6ddb3799c2ce6b3ca2aa117d14cc572c4bcfee524fa276c1f5b5d", size = 10942079 },
+    { url = "https://files.pythonhosted.org/packages/71/43/34134c69367b82a16c7ba187a77602c349e482e575bba21c1517de8dd4e9/mavsdk-2.8.4-py3-none-manylinux2014_aarch64.whl", hash = "sha256:c111a234e435920d9ec0a337edb24560e6c7e5dc0205e52c7d4a12513a6b262a", size = 16621780 },
+    { url = "https://files.pythonhosted.org/packages/90/57/a2e53443c25f6052e76dd3ebc57d29c462af0fc4cad81c5d1d6bdce80fd8/mavsdk-2.8.4-py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:de32c1706da9aea3c1127a6f5f5869c8b893db2a94a70041f75ef367e7b0bfb3", size = 13563709 },
+    { url = "https://files.pythonhosted.org/packages/71/67/807dedddf19c77fa213121fea9115f6f6a9d64724f558c796f5d59bd2c5b/mavsdk-2.8.4-py3-none-win32.whl", hash = "sha256:df80d42a7755ff6829ffcd3587b75ed3437675658ba6f216b8941ca0f2df7946", size = 364808 },
+    { url = "https://files.pythonhosted.org/packages/12/0f/a1148bb8bd211c56608ae85deeea46f060d43364536e2e566a5f33547fa1/mavsdk-2.8.4-py3-none-win_amd64.whl", hash = "sha256:e0ab5dafb8c296518075492dd8164fa8c3669e8831a8bb90ad1064c08cbb6788", size = 364808 },
 ]
 
 [[package]]
 name = "protobuf"
-version = "5.29.3"
+version = "3.20.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f7/d1/e0a911544ca9993e0f17ce6d3cc0932752356c1b0a834397f28e63479344/protobuf-5.29.3.tar.gz", hash = "sha256:5da0f41edaf117bde316404bad1a486cb4ededf8e4a54891296f648e8e076620", size = 424945 }
+sdist = { url = "https://files.pythonhosted.org/packages/19/96/1283259c25bc48a6df98fa096f66fc568b40137b93806ef5ff66a2d166b1/protobuf-3.20.1.tar.gz", hash = "sha256:adc31566d027f45efe3f44eeb5b1f329da43891634d61c75a5944e9be6dd42c9", size = 216462 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dc/7a/1e38f3cafa022f477ca0f57a1f49962f21ad25850c3ca0acd3b9d0091518/protobuf-5.29.3-cp310-abi3-win32.whl", hash = "sha256:3ea51771449e1035f26069c4c7fd51fba990d07bc55ba80701c78f886bf9c888", size = 422708 },
-    { url = "https://files.pythonhosted.org/packages/61/fa/aae8e10512b83de633f2646506a6d835b151edf4b30d18d73afd01447253/protobuf-5.29.3-cp310-abi3-win_amd64.whl", hash = "sha256:a4fa6f80816a9a0678429e84973f2f98cbc218cca434abe8db2ad0bffc98503a", size = 434508 },
-    { url = "https://files.pythonhosted.org/packages/dd/04/3eaedc2ba17a088961d0e3bd396eac764450f431621b58a04ce898acd126/protobuf-5.29.3-cp38-abi3-macosx_10_9_universal2.whl", hash = "sha256:a8434404bbf139aa9e1300dbf989667a83d42ddda9153d8ab76e0d5dcaca484e", size = 417825 },
-    { url = "https://files.pythonhosted.org/packages/4f/06/7c467744d23c3979ce250397e26d8ad8eeb2bea7b18ca12ad58313c1b8d5/protobuf-5.29.3-cp38-abi3-manylinux2014_aarch64.whl", hash = "sha256:daaf63f70f25e8689c072cfad4334ca0ac1d1e05a92fc15c54eb9cf23c3efd84", size = 319573 },
-    { url = "https://files.pythonhosted.org/packages/a8/45/2ebbde52ad2be18d3675b6bee50e68cd73c9e0654de77d595540b5129df8/protobuf-5.29.3-cp38-abi3-manylinux2014_x86_64.whl", hash = "sha256:c027e08a08be10b67c06bf2370b99c811c466398c357e615ca88c91c07f0910f", size = 319672 },
-    { url = "https://files.pythonhosted.org/packages/fd/b2/ab07b09e0f6d143dfb839693aa05765257bceaa13d03bf1a696b78323e7a/protobuf-5.29.3-py3-none-any.whl", hash = "sha256:0a18ed4a24198528f2333802eb075e59dea9d679ab7a6c5efb017a59004d849f", size = 172550 },
+    { url = "https://files.pythonhosted.org/packages/bd/ca/0d522203bedd17a8c53cb869e1dfd7ac9140c66b76b3cbca25bf601448b2/protobuf-3.20.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:3cc797c9d15d7689ed507b165cd05913acb992d78b379f6014e013f9ecb20996", size = 962323 },
+    { url = "https://files.pythonhosted.org/packages/70/75/df318e565cf126a9464b9220ef6adfecb44fb7c68df140bc5680d0ed05c3/protobuf-3.20.1-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:ff8d8fa42675249bb456f5db06c00de6c2f4c27a065955917b28c4f15978b9c3", size = 917929 },
+    { url = "https://files.pythonhosted.org/packages/4c/be/bdd22d86d24e5b8b08673d80be70d1a72c255f85152ff09b28490904092a/protobuf-3.20.1-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:cd68be2559e2a3b84f517fb029ee611546f7812b1fdd0aa2ecc9bc6ec0e4fdde", size = 1050446 },
+    { url = "https://files.pythonhosted.org/packages/89/1a/b4d72e1d7134ffac2156d1dfc3b9ddb21d1664ff392e1e5fe2882a117f81/protobuf-3.20.1-cp310-cp310-win32.whl", hash = "sha256:9016d01c91e8e625141d24ec1b20fed584703e527d28512aa8c8707f105a683c", size = 779974 },
+    { url = "https://files.pythonhosted.org/packages/c0/9c/bb88091287418ae1cf8af2bb9ed9710748a562b9abc227e4884d687a8650/protobuf-3.20.1-cp310-cp310-win_amd64.whl", hash = "sha256:32ca378605b41fd180dfe4e14d3226386d8d1b002ab31c969c366549e66a2bb7", size = 903843 },
+    { url = "https://files.pythonhosted.org/packages/ef/c8/2e7f7feaf804b7206e6cc8fa3f0f49834a78f7cb127813d2c45e42d5f7bf/protobuf-3.20.1-py2.py3-none-any.whl", hash = "sha256:adfc6cf69c7f8c50fd24c793964eef18f0ac321315439d94945820612849c388", size = 162127 },
 ]
 
 [[package]]
@@ -292,7 +305,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.8" },
-    { name = "mavsdk", specifier = ">=3.0.1" },
+    { name = "mavsdk", specifier = ">=2.8,<3" },
     { name = "pyzmq", specifier = ">=26.2.1" },
 ]
 
