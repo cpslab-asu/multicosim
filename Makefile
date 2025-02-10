@@ -1,8 +1,9 @@
-PX4_VERSION := 1.15.0
-GZ_VERSION := harmonic
-GZCM_VERSION := $(shell hatch version)
-REGISTRY := ghcr.io/cpslab-asu/gzcm
-PLATFORMS := linux/amd64,linux/arm64
+export PX4_VERSION ?= 1.15.0
+export GZ_VERSION ?= harmonic
+export GZCM_VERSION ?= $(shell hatch version)
+export REGISTRY ?= ghcr.io/cpslab-asu/gzcm
+export PLATFORMS ?= linux/amd64,linux/arm64
+
 
 all: wheel images
 

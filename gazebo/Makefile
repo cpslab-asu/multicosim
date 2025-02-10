@@ -1,11 +1,11 @@
-REGISTRY = ghcr.io/cpslab-asu/gzcm
-GZ_VERSION = harmonic
-PLATFORMS = linux/amd64,linux/arm64
+REGISTRY ?= ghcr.io/cpslab-asu/gzcm
+GZ_VERSION ?= harmonic
+PLATFORMS ?= linux/amd64,linux/arm64
 SOURCES := $(wildcard src/*.py) $(wildcard resources/worlds/*.sdf)
 
 image: .cache/gazebo
 
-.cache/gazebo: Dockerfile $(SOURCES)
+.cache/gazebo: Dockerfile pyproject.toml uv.lock $(SOURCES)
 	docker buildx build \
 		--platform $(PLATFORMS) \
 		--tag $(REGISTRY)/gazebo:$(GZ_VERSION) \

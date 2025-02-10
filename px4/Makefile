@@ -2,7 +2,7 @@ REGISTRY ?= ghcr.io/cpslab-asu/gzcm
 PLATFORMS ?= linux/amd64,linux/arm64
 GZ_VERSION ?= harmonic
 PX4_VERSION ?= 1.15.0
-GZCM_VERSION := $(shell hatch version)
+GZCM_VERSION ?= $(shell cd .. && hatch version)
 SOURCES := $(wildcard src/*.py) $(wildcard ../src/gzcm/*.py)
 
 images: gazebo firmware
@@ -22,7 +22,7 @@ gazebo: .cache/gazebo
 
 firmware: .cache/firmware
 
-.cache/firmware: firmware.Dockerfile $(SOURCES)
+.cache/firmware: firmware.Dockerfile pyproject.toml uv.lock $(SOURCES)
 	docker buildx build \
 		--file firmware.Dockerfile \
 		--platform $(PLATFORMS) \
@@ -33,5 +33,8 @@ firmware: .cache/firmware
 		.
 	@mkdir -p .cache
 	@touch $@
+
+version:
+	echo $(GZCM_VERSION)
 
 .PHONY: images gazebo firmware
