@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS fetcher
+FROM ubuntu:22.04 AS fetch
 
 # Install dependencies for adding OSRF Apt repository
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
@@ -18,5 +18,12 @@ LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/gzcm
 LABEL org.opencontainers.image.description="Base image for other GZCM images"
 LABEL org.opencontainers.image.license=BSD-3-Clause
 
-COPY --from=fetcher /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg /usr/share/keyrings/
-COPY --from=fetcher /etc/apt/sources.list.d/gazebo-stable.list /etc/apt/sources.list.d/
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && \
+    apt-get install -y python3.10 && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV DEBIAN_FRONTEND=
+
+COPY --from=fetch /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg /usr/share/keyrings/
+COPY --from=fetch /etc/apt/sources.list.d/gazebo-stable.list /etc/apt/sources.list.d/
