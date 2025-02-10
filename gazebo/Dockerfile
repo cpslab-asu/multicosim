@@ -2,7 +2,7 @@ FROM ghcr.io/cpslab-asu/gzcm/base:22.04 AS venv
 
 RUN mkdir /app
 COPY ./pyproject.toml ./uv.lock /app
-RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
+RUN --mount=from=ghcr.io/astral-sh/uv:0.5.29,source=/uv,target=/bin/uv \
     uv sync --project /app --python-preference only-system --frozen --no-dev
 
 FROM ghcr.io/cpslab-asu/gzcm/base:22.04 AS gazebo
