@@ -1,17 +1,9 @@
 FROM ghcr.io/cpslab-asu/gzcm/base:22.04 AS venv
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-venv
-
-RUN python3 -m venv /opt/pipenv
-RUN /opt/pipenv/bin/pip3 install pipenv
-
 RUN mkdir /app
-WORKDIR /app
-
-COPY ./Pipfile ./Pipfile.lock ./
-RUN python3 -m venv .venv
-RUN /opt/pipenv/bin/pipenv sync
+COPY ./pyproject.toml ./uv.lock /app
+RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
+    uv sync --project /app --python-preference only-system --frozen --no-dev
 
 FROM ghcr.io/cpslab-asu/gzcm/base:22.04 AS gazebo
 
@@ -21,7 +13,7 @@ LABEL org.opencontainers.image.license=BSD-3-Clause
 
 ARG GZ_VERSION=harmonic
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y gz-${GZ_VERSION} python3 && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y gz-${GZ_VERSION} && \
     rm -rf /var/lib/apt/lists/*
 
 ENV GZ_ROOT=/app
