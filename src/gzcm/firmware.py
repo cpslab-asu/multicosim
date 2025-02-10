@@ -56,7 +56,7 @@ def _get_host_port(container: Container, port: int, *, protocol: PortProtocol = 
     raise ValueError("Could not find host port binding")
 
 
-R = TypeVar("R")
+R = TypeVar("R", covariant=True)
 
 
 @attrs.frozen()
@@ -74,7 +74,7 @@ T = TypeVar("T")
 M = TypeVar("M", covariant=True)
 
 
-class Firmware(Generic[T, R]):
+class Process(Generic[T, R]):
     def __init__(self, client: Client, container: Container, socket: zmq.Socket, rtype: type[R]):
         self.container = container
         self.socket = socket
@@ -130,7 +130,7 @@ class Firmware(Generic[T, R]):
 
 
 @dataclass()
-class FirmwareManager(Generic[M, R]):
+class Firmware(Generic[M, R]):
     client: Client | None
     context: zmq.Context | None
     firmware_image: str
@@ -140,7 +140,7 @@ class FirmwareManager(Generic[M, R]):
     rtype: type[R]
 
     @contextmanager
-    def start(self) -> Generator[Firmware[M, R], None, None]:
+    def start(self) -> Generator[Process[M, R], None, None]:
         client = self.client or docker.from_env()
         context = self.context or zmq.Context()
         ctx = gzcm.containers.start(
@@ -160,7 +160,7 @@ class FirmwareManager(Generic[M, R]):
 
                 with context.socket(zmq.REQ) as socket:
                     with socket.connect(f"tcp://localhost:{port}"):
-                        yield Firmware(client, container, socket, self.rtype)
+                        yield Process(client, container, socket, self.rtype)
         finally:
             pass
 
@@ -171,7 +171,7 @@ class MsgFactory(Protocol[P, M]):
 
 
 @dataclass()
-class FirmwareWrapper(Generic[P, M, R], FirmwareManager[M, R]):
+class ManagedFirmware(Generic[P, M, R], Firmware[M, R]):
     msg_factory: MsgFactory[P, M]
     gazebo_image: str
     world: Path
@@ -195,7 +195,7 @@ class FirmwareWrapper(Generic[P, M, R], FirmwareManager[M, R]):
 
 
 class Decorator(Protocol[R]):
-    def __call__(self, func: MsgFactory[P, M]) -> FirmwareWrapper[P, M, R]:
+    def __call__(self, func: MsgFactory[P, M]) -> ManagedFirmware[P, M, R]:
         ...
 
 
@@ -243,8 +243,8 @@ def manage(
     client: Client | None = None,
     context: zmq.Context | None = None,
 ) -> Decorator[R] | Decorator[object]:
-    def decorator(func: MsgFactory[P, M]) -> FirmwareWrapper[P, M, R | object]:
-        return FirmwareWrapper(
+    def decorator(func: MsgFactory[P, M]) -> ManagedFirmware[P, M, R | object]:
+        return ManagedFirmware(
             client,
             context,
             firmware_image,
