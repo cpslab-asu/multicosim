@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Generator
+import logging
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -262,3 +263,47 @@ def manage(
         return cast(Decorator[R], decorator)
     
     return cast(Decorator[object], decorator)
+
+
+A = TypeVar("A")
+B = TypeVar("B", covariant=True)
+
+
+class Server(Generic[B]):
+    def __init__(self, func: Callable[[A], B], msgtype: type[A] | None = None):
+        self.msgtype = msgtype
+        self.func = func
+        self.logger = logging.getLogger("gzcm.program")
+        self.logger.addHandler(logging.NullHandler())
+
+    def __call__(self, port: int = DEFAULT_PORT):
+        with zmq.Context() as ctx:
+            with ctx.socket(zmq.REP) as socket:
+                with socket.bind(f"tcp://*:{port}"):
+                    self.logger.debug("Waiting for configuration message...")
+
+                    msg = socket.recv_pyobj()
+
+                    if self.msgtype is not None and not isinstance(msg, self.msgtype):
+                        raise TypeError(f"Unknown start message type {type(msg)}. Expected {self.msgtype}")
+
+                    try:
+                        result: Success[B] | Failure = Success(self.func(msg))
+                    except Exception as e:
+                        result = Failure(e)
+
+                    socket.send_pyobj(result)
+
+
+C = TypeVar("C")
+D = TypeVar("D")
+E = TypeVar("E")
+
+
+class ProgramDecorator(Protocol):
+    def __call__(self, __func: Callable[[A], C], /) -> Server[C]:
+        ...
+
+
+def serve(*, msgtype: type[A] | None = None) -> ProgramDecorator:
+    return lambda f: Server(f, msgtype)
