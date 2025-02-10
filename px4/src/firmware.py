@@ -7,8 +7,8 @@ import subprocess
 import threading
 
 import click
+import gzcm
 import gzcm.px4 as px4
-import gzcm.firmware as fw
 import gz.transport13
 import gz.msgs10.pose_v_pb2 as pose_v
 import mavsdk
@@ -113,50 +113,45 @@ async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handle
             break
 
 
+@gzcm.serve(msgtype=px4.StartMsg)
+def server(msg: px4.StartMsg) -> px4.States:
+    handler = Handler()
+    mission = create_mission(msg)
+    model = gz_model_name(msg.model)
+    env = f"PX4_GZ_STANDALONE=1 PX4_SIM_MODEL={model} PX4_GZ_WORLD={msg.world}"
+    cmd = f"{env} /opt/px4-autopilot/build/px4_sitl_default/bin/px4"
+
+    logger = logging.getLogger("px4.firmware")
+    logger.addHandler(logging.NullHandler())
+    logger.debug(f"Running PX4 firmware using command: {cmd}")
+
+    process = subprocess.Popen(
+        args=cmd,
+        cwd="/opt/px4-autopilot/build/px4_sitl_default/src/modules/simulation/gz_bridge",
+        shell=True,
+        executable="/bin/bash",
+    )
+
+    try:
+        asyncio.run(execute_mission(mission, msg.world, handler), debug=True)
+        logger.debug("Mission completed.")
+    finally:
+        logger.debug("Shutting down PX4...")
+        process.kill()
+        process.wait()
+        logger.debug("Goodbye.")
+
+    return handler.states
+
+
 @click.command("firmware")
 @click.option("-v", "--verbose", is_flag=True)
 @click.option("-p", "--port", type=int, default=5556)
 def firmware(verbose: bool, port: int):
-    logger = logging.getLogger("px4.firmware")
-    logger.addHandler(logging.NullHandler())
-
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    with zmq.Context() as ctx:
-        with ctx.socket(zmq.REP) as socket:
-            with socket.bind(f"tcp://*:{port}"):
-                logger.debug("Waiting for configuration message...")
-
-                msg = socket.recv_pyobj()
-
-                if not isinstance(msg, px4.StartMsg):
-                    raise TypeError(f"Unknown start message type {type(msg)}. Expected gzcm.px4.StartMsg")
-
-                logger.debug("Configuration received. Starting mission...")
-                mission = create_mission(msg)
-                model = gz_model_name(msg.model)
-                env = f"PX4_GZ_STANDALONE=1 PX4_SIM_MODEL={model} PX4_GZ_WORLD={msg.world}"
-                cmd = f"{env} /opt/px4-autopilot/build/px4_sitl_default/bin/px4"
-
-                logger.debug(f"Running PX4 firmware using command: {cmd}")
-                process = subprocess.Popen(
-                    args=cmd,
-                    cwd="/opt/px4-autopilot/build/px4_sitl_default/src/modules/simulation/gz_bridge",
-                    shell=True,
-                    executable="/bin/bash",
-                )
-
-                try:
-                    handler = Handler()
-                    asyncio.run(execute_mission(mission, msg.world, handler), debug=True)
-                    socket.send_pyobj(fw.Success(handler.states))
-                    logger.debug("Mission completed.")
-                finally:
-                    logger.debug("Shutting down PX4...")
-                    process.kill()
-                    process.wait()
-                    logger.debug("Goodbye.")
+    server(port)
 
 
 if __name__ == "__main__":
