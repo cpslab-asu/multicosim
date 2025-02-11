@@ -10,9 +10,9 @@ all: wheel images
 wheel:
 	hatch build
 
-.cache/base: base.Dockerfile
+.cache/base: Dockerfile
 	docker buildx build \
-		--file base.Dockerfile \
+		--file Dockerfile \
 		--platform $(PLATFORMS) \
 		--tag $(REGISTRY)/base:22.04 \
 		--load \
