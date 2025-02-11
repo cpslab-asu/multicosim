@@ -24,12 +24,11 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
         libgz-msgs10-dev \
         ;
 
+ARG PX4_VERSION=1.15.0
 ENV PX4_ROOT=/opt/px4-autopilot
-RUN git clone https://github.com/px4/px4-autopilot ${PX4_ROOT}
+RUN git clone --depth 1 --branch v${PX4_VERSION} https://github.com/px4/px4-autopilot ${PX4_ROOT}
 WORKDIR ${PX4_ROOT}
 
-ARG PX4_VERSION=1.15.0
-RUN git checkout v${PX4_VERSION}
 
 # Install build dependencies and build PX4 firmware
 RUN python3 -m venv .venv
