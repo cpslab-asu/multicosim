@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import docker
 
-import gzcm.containers
+from . import containers
 
 if TYPE_CHECKING:
     from docker import DockerClient as Client
@@ -186,7 +186,7 @@ def start(
         raise GazeboError("Host container is not running")
 
     cmd = f"gazebo --base {base} --world {world} {config.args}"
-    ctx = gzcm.containers.start(image, command=cmd, host=host, remove=remove, client=client)
+    ctx = containers.start(image, command=cmd, host=host, remove=remove, client=client)
 
     with ctx as container:
         try:

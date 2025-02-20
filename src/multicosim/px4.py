@@ -7,9 +7,9 @@ from typing import Final
 
 import attrs
 
-from gzcm import gazebo as gz
-from gzcm import firmware as fw
-from gzcm.__about__ import __version__
+from . import gazebo as gz
+from . import firmware as fw
+from . import __version__
 
 
 @attrs.frozen()

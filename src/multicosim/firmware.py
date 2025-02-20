@@ -5,20 +5,21 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypeAlias, TypeVar, TypedDict, Final, Generic, Protocol, ParamSpec, ContextManager, overload, cast
+from typing import TYPE_CHECKING, TypeVar, TypedDict, Final, Generic, Protocol, ContextManager, overload, cast
 
 import attrs
 import docker
 import zmq
+import typing_extensions
 
-import gzcm.containers
-import gzcm.gazebo as gz
+from . import containers
+from . import gazebo as gz
 
 if TYPE_CHECKING:
     from docker import DockerClient as Client
-    from docker.models.containers import Container
 
-PortProtocol: TypeAlias = Literal["tcp", "udp"]
+    from .containers import Container, PortProtocol
+
 DEFAULT_PORT: Final[int] = 5556
 
 
@@ -70,7 +71,7 @@ class Failure:
     error: Exception
 
 
-P = ParamSpec("P")
+P = typing_extensions.ParamSpec("P")
 T = TypeVar("T")
 M = TypeVar("M", covariant=True)
 
@@ -144,7 +145,7 @@ class Firmware(Generic[M, R]):
     def start(self) -> Generator[Process[M, R], None, None]:
         client = self.client or docker.from_env()
         context = self.context or zmq.Context()
-        ctx = gzcm.containers.start(
+        ctx = containers.start(
             client=client,
             image=self.firmware_image,
             command=self.command,

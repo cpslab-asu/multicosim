@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Generator, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Generator, Literal, cast
 
 import docker.errors
-
+import docker.models.containers
+import typing_extensions
 
 from . import images
 
@@ -12,9 +13,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from docker import DockerClient as Client
-    from docker.models.containers import Container
 
-PortProtocol: TypeAlias = Literal["tcp", "udp"]
+Container: typing_extensions.TypeAlias = docker.models.containers.Container
+PortProtocol: typing_extensions.TypeAlias = Literal["tcp", "udp"]
 
 
 @contextmanager
