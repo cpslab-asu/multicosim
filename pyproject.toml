@@ -28,6 +28,7 @@ dependencies = [
     "attrs",
     "docker",
     "pyzmq",
+    "typing-extensions",
 ]
 
 [project.urls]
@@ -39,7 +40,9 @@ Source = "https://github.com/cpslab-asu/multicosim"
 path = "src/multicosim/__about__.py"
 
 [tool.hatch.envs.default]
-dependencies = []
+dependencies = [
+    "types-docker"
+]
 
 [tool.hatch.envs.examples]
 dependencies = [
@@ -55,7 +58,19 @@ extra-dependencies = [
 ]
 
 [tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/gzcm tests}"
+check = "mypy --pretty --install-types --non-interactive {args:src tests}"
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = [
+    "ruff>=0.9.7"
+]
+
+[tool.hatch.envs.lint.scripts]
+check = [
+    "ruff check {args:src tests}",
+    "ruff format --diff {args:src tests}",
+]
 
 [tool.coverage.run]
 source_pkgs = ["multicosim", "tests"]
@@ -76,15 +91,42 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
-[tool.mypy]
-python_version = "3.10"
+[tool.pyright]
+pythonVersion = "3.8"
+include = ["src"]
 
-[[tool.mypy.overrides]]
-module = [
-    "docker",
-    "docker.errors",
-    "docker.models",
-    "docker.models.containers",
-    "docker.models.images",
+[tool.mypy]
+python_version = "3.8"
+files = ["src"]
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py38"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9", "F", "C90",  # Default Flake8 lints
+    "A",                           # Built-in shadowing lints
+    "B",                           # Bugbear lints
+    "I",                           # Isort lints
+    "UP",                          # Upgrade lints
+    "C4",                          # List comprehension lints
+    "PYI",                         # Stub file lints
+    "RET501", "RET502", "RET504",  # Return value lints
+    "N8",                          # Naming plugin
+    "TD",                          # TODO plugin
+    "FBT",                         # Boolean trap lints
+    "SIM",                         # Simplification lints
+    "PTH",                         # Pathlib migration lints
 ]
-ignore_missing_imports = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["multicosim"]
+split-on-trailing-comma = false
