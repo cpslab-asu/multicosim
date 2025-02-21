@@ -1,0 +1,15 @@
+[project]
+name = "multicosim-rover"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "multicosim",
+    "multicosim-rover-controller",
+    "click~=8.1",
+    "psy-taliro~=1.0",
+    "pymoo~=0.6",
+]
+
+[tool.uv.sources]
+multicosim-rover-controller = { path = "./controller", editable = true }
+multicosim = { path = "../..", editable = true }

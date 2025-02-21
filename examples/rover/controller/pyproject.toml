@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multicosim-rover-controller"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy~=1.26.0"
+]
+
+[dependency-groups]
+container = [
+    "apscheduler~=3.11",
+    "click~=8.1",
+    "pyzmq~=26.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
