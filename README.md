@@ -1,11 +1,11 @@
-# GZCM
+# MultiCoSim
 
-Library for managing firmware and Gazebo simulation containers
+Library for managing multi-fidelity co-simulations of cyber-physical systems.
 
 ## Installation
 
-This library can be installed either from PyPI using the command `pip install gzcm` or from github
-by using the command `pip install https://github.com/cpslab-asu/gzcm#egg=gzcm`.
+This library can be installed either from PyPI using the command `pip install multicosim` or from github
+by using the command `pip install https://github.com/cpslab-asu/multicosim#egg=multicosim`.
 
 This library requires multiple docker containers to be available on the system. In general, these
 containers will be downloaded if they do not exist, but they can also be built from source if
@@ -19,26 +19,23 @@ provide the appropriate configuration objects to customize the simulation. The f
 simple example to demonstrate some of the configuration options available.
 
 ```python
+import multicosim as mcs
+import multicosim.gazebo as gz
 
-import gzcm.px4 as px4
-import gzcm.gazebo as gz
-
-px4_config = px4.Config(model=px4.Model.X500)
-gz_config = gz.Config(backend=gz.ODE(), step_size=0.001)
-
-poses = px4.simulate(px4_config, gz_config)
-
+px4 = mcs.PX4(model=mcs.PX4.Model.X500)
+gazebo = mcs.Gazebo(backend=gz.ODE(), step_size=0.001)
+poses = px4.simulate(gazebo)
 ```
 
 You can also use this library to define your own systems for execution. In order to execute a
 system there are two components that must be provided. The first the firmware execution program
 that will run in the docker container and communicate with the Gazebo simulator. This can be
-quickly implemented using the provided `gzcm.serve` decorator like so:
+quickly implemented using the provided `multicosim.serve` decorator like so:
 
 ```python
 # controller.py
 
-import gzcm
+import multicosim as mcs
 
 
 class Config: ...
@@ -47,7 +44,7 @@ class Config: ...
 class Result: ...
 
 
-@gzcm.serve()
+@mcs.serve()
 def server(msg: Config) -> Result:
     # Execute firmware
     ...
@@ -64,16 +61,16 @@ simulation. This program needs to be loaded into a container image that is acces
 context the library is executed using.
 
 The second required component is the configuration of an executor for the newly defined system
-container. This can be implemented using the `gzcm.manage` decorator like so:
+container. This can be implemented using the `multicosim.manage` decorator like so:
 
 ```python
 # executor.py
 
-import gzcm
+import multicosim as mcs
 
 import controller
 
-@gzcm.manage(
+@mcs.manage(
     firmware_image=...,
     gazebo_image=...,
     command=...,
@@ -84,7 +81,7 @@ def system(world: str, x: int, y: str) -> controller.Start:
     ...
 
 if __name__ == "__main__":
-    gz = gzcm.Gazebo()
+    gz = mcs.Gazebo()
     result = system.run(gz, 10, "foo")
 ```
 
@@ -97,7 +94,7 @@ firmware when the simulation is terminated. The return value of the wrapped func
 that will be sent to the firmware to start the simulation. The wrapped function must accept at
 minimum a `world` argument which is the name of the currently executing Gazebo world that can be
 used to communicate with the simulator using the transport libraries. To execute a simulation, the
-`run` method can be called, which accepts a `gzcm.Gazebo` instance representing the simulator
+`run` method can be called, which accepts a `multicosim.Gazebo` instance representing the simulator
 configuration and all the arguments of the wrapped function following the `world` argument.
 
 ## Building From Source
