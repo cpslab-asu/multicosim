@@ -11,7 +11,7 @@ RUN apt-get update \
         gstreamer1.0-libav \
         gstreamer1.0-gl \
         libdebuginfod-dev \
-    &&  rm -rf /var/apt/lists/* 
+    &&  rm -rf /var/lib/apt/lists/* 
 
 FROM base AS build
 
@@ -29,9 +29,9 @@ RUN cmake --build /src/ardupilot_gazebo/build
 
 FROM base AS gazebo
 
-COPY --from=build /src/ardupilot_gazebo/worlds ./worlds/
-COPY --from=build /src/ardupilot_gazebo/models ./models/
+COPY --from=build /src/ardupilot_gazebo/worlds ./resources/worlds/
+COPY --from=build /src/ardupilot_gazebo/models ./resources/models/
 COPY --from=build /src/ardupilot_gazebo/build/*.so ./plugins/
 
 ENV GZ_SIM_SYSTEM_PLUGIN_PATH=${GZ_ROOT}/plugins
-ENV GZ_SIM_RESOURCE_PATH=${GZ_ROOT}/models:${GZ_ROOT}/worlds
+ENV GZ_SIM_RESOURCE_PATH=${GZ_ROOT}/resources/models:${GZ_ROOT}/resources/worlds
