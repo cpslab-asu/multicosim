@@ -274,7 +274,7 @@ class Server(Generic[B]):
     def __init__(self, func: Callable[[A], B], msgtype: type[A] | None = None):
         self.msgtype = msgtype
         self.func = func
-        self.logger = logging.getLogger("gzcm.program")
+        self.logger = logging.getLogger("multicosim.program")
         self.logger.addHandler(logging.NullHandler())
 
     def __call__(self, port: int = DEFAULT_PORT):

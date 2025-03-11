@@ -11,7 +11,7 @@ if typing.TYPE_CHECKING:
 
 
 def ensure(name: str, *, client: Client) -> Image:
-    logger = logging.getLogger("gzcm.containers")
+    logger = logging.getLogger("multicosim.containers")
     logger.addHandler(logging.NullHandler())
 
     if ":" not in name:
