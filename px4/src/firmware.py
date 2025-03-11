@@ -7,14 +7,13 @@ import subprocess
 import threading
 
 import click
-import gzcm
-import gzcm.px4 as px4
+import multicosim as mcs
+import multicosim.px4 as px4
 import gz.transport13
 import gz.msgs10.pose_v_pb2 as pose_v
 import mavsdk
 import mavsdk.action
 import mavsdk.mission as mission
-import zmq
 
 
 def create_mission_item(waypoint: px4.Waypoint) -> mission.MissionItem:
@@ -113,7 +112,7 @@ async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handle
             break
 
 
-@gzcm.serve(msgtype=px4.StartMsg)
+@mcs.serve(msgtype=px4.StartMsg)
 def server(msg: px4.StartMsg) -> px4.States:
     handler = Handler()
     mission = create_mission(msg)
