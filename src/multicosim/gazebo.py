@@ -152,7 +152,7 @@ def start(
     config: Gazebo,
     host: Container,
     *,
-    image: str = "ghcr.io/cpslab-asu/gzcm/gazebo:harmonic",
+    image: str = "ghcr.io/cpslab-asu/multicosim/gazebo:harmonic",
     base: Path = Path("resources/world/default.sdf"),
     world: Path = Path("/tmp/generated.sdf"),
     client: Client | None = None,

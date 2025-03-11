@@ -63,8 +63,8 @@ class States(Iterable[State]):
 
 
 @fw.manage(
-    firmware_image=f"ghcr.io/cpslab-asu/gzcm/px4/firmware:{__version__}",
-    gazebo_image="ghcr.io/cpslab-asu/gzcm/px4/gazebo:harmonic",
+    firmware_image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
+    gazebo_image="ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic",
     command=f"/usr/local/bin/firmware --port {PORT} --verbose",
     port=PORT,
     template=Path("resources/worlds/default.sdf"),
