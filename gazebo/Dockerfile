@@ -1,14 +1,14 @@
-FROM ghcr.io/cpslab-asu/gzcm/base:22.04 AS venv
+FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS venv
 
 RUN mkdir /app
 COPY ./pyproject.toml ./uv.lock /app
 RUN --mount=from=ghcr.io/astral-sh/uv:0.5.29,source=/uv,target=/bin/uv \
     uv sync --project /app --python-preference only-system --frozen --no-dev
 
-FROM ghcr.io/cpslab-asu/gzcm/base:22.04 AS gazebo
+FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS gazebo
 
-LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/gzcm
-LABEL org.opencontainers.image.description="Base gazebo for derived GZCM gazebo images"
+LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
+LABEL org.opencontainers.image.description="Base gazebo for derived MultiCoSim gazebo images"
 LABEL org.opencontainers.image.license=BSD-3-Clause
 
 ARG GZ_VERSION=harmonic
