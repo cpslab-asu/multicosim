@@ -4,8 +4,7 @@ import logging
 import pprint
 
 import click
-import gzcm.px4 as px4
-import gzcm.gazebo as gz
+import multicosim as mcs
 
 
 @click.command("px4")
@@ -17,8 +16,8 @@ def px4_example(container: str | None, verbose: bool, remove: bool):
         logging.basicConfig()
         logging.getLogger("examples.px4").setLevel(logging.DEBUG)
 
-    system = px4.PX4()
-    gazebo = gz.Gazebo()
+    system = mcs.PX4()
+    gazebo = mcs.Gazebo()
     trace = system.simulate(px4.DEFAULT_MISSION, gazebo, container=container, remove=remove)
 
     pprint.pprint(trace)

@@ -7,7 +7,7 @@ from logging import DEBUG, INFO, WARNING, Logger, NullHandler, basicConfig, getL
 
 import apscheduler.schedulers.blocking as sched
 import click
-import gzcm
+import multicosim as mcs
 import numpy.random as rand
 
 import rover
@@ -108,7 +108,7 @@ def controller(ctx: click.Context, verbose: bool):
     ctx.obj["logger"] = logger
 
 
-@gzcm.serve(msgtype=msgs.Start)
+@mcs.serve(msgtype=msgs.Start)
 def server(msg: msgs.Start) -> msgs.Result:
     return msgs.Result(run(msg.world, msg.frequency, msg.magnet, msg.speed, msg.commands))
 

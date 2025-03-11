@@ -21,7 +21,7 @@ RUN uv venv \
 RUN uv sync --locked --group container --no-install-project
 RUN uv pip install /opt/multicosim
 
-FROM ghcr.io/cpslab-asu/gzcm/base:22.04
+FROM ghcr.io/cpslab-asu/multicosim/base:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
