@@ -1,9 +1,8 @@
 export PX4_VERSION ?= 1.15.0
 export GZ_VERSION ?= harmonic
-export GZCM_VERSION ?= $(shell hatch version)
-export REGISTRY ?= ghcr.io/cpslab-asu/gzcm
+export MULTICOSIM_VERSION ?= $(shell hatch version)
+export REGISTRY ?= ghcr.io/cpslab-asu/multicosim
 export PLATFORMS ?= linux/amd64,linux/arm64
-
 
 all: wheel images
 

@@ -1,4 +1,4 @@
-REGISTRY ?= ghcr.io/cpslab-asu/gzcm
+REGISTRY ?= ghcr.io/cpslab-asu/multicosim
 GZ_VERSION ?= harmonic
 PLATFORMS ?= linux/amd64,linux/arm64
 SOURCES := $(wildcard src/*.py) $(wildcard resources/worlds/*.sdf)
