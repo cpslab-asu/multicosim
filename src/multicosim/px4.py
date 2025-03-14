@@ -99,13 +99,6 @@ def simulate(
     return {state.time: state.pose for state in states}
 
 
-DEFAULT_MISSION: Final[list[Waypoint]] = [
-    Waypoint(47.398039859999997, 8.5455725400000002, 25),
-    Waypoint(47.398036222362471, 8.5450146439425509, 25),
-    Waypoint(47.397825620791885, 8.5450092830163271, 25),
-]
-
-
 @attrs.frozen()
 class PX4:
     """Configuration parameters for a simulated PX4-controlled vehicle.
