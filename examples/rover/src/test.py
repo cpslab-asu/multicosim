@@ -16,7 +16,6 @@ from controller.messages import Start, Result
 from plots import Plot, plot
 
 PORT: typing.Final[int] = 5556
-GZ_IMAGE: typing.Final[str] = "ghcr.io/cpslab-asu/ngc-rover-ha/gazebo:harmonic"
 GZ_BASE: typing.Final[pathlib.Path] = pathlib.Path("resources/worlds/default.sdf")
 GZ_WORLD: typing.Final[pathlib.Path] = pathlib.Path("/tmp/generated.sdf")
 
@@ -28,8 +27,8 @@ def firmware(*, verbose: bool):
         prefix = f"{prefix} --verbose"
 
     @multicosim.manage(
-        firmware_image="ghcr.io/cpslab-asu/ngc-rover-ha/controller:latest",
-        gazebo_image="ghcr.io/cpslab-asu/ngc-rover-ha/gazebo:harmonic",
+        firmware_image="ghcr.io/cpslab-asu/multicosim/rover/controller:latest",
+        gazebo_image="ghcr.io/cpslab-asu/multicosim/rover/gazebo:harmonic",
         command=f"{prefix} serve --port {PORT}",
         port=PORT,
         rtype=Result,
@@ -41,11 +40,11 @@ def firmware(*, verbose: bool):
 
 
 @click.command("simulation")
-@click.pass_context
 @click.option("-f", "--frequency", "freq", type=int, default=2)
 @click.option("-s", "--speed", type=float, default=5.0)
 @click.option("-m", "--magnet", type=float, nargs=2, default=None)
-def simulation(ctx: click.Context, speed: float, freq: int, magnet: tuple[float, float] | None):
+@click.option("-v", "--verbose", is_flag=True)
+def simulation(speed: float, freq: int, magnet: tuple[float, float] | None, *, verbose: bool):
     if magnet:
         rng = rand.default_rng()
         magnet_ = GaussianMagnet(x=magnet[0], y=magnet[1], rng=rng)
@@ -53,7 +52,7 @@ def simulation(ctx: click.Context, speed: float, freq: int, magnet: tuple[float,
         magnet_ = None
 
     gazebo = multicosim.Gazebo()
-    firmware_ = firmware(verbose=ctx.obj["verbose"])
+    firmware_ = firmware(verbose=verbose)
     result = firmware_.run(gazebo, freq=freq, magnet=magnet_, speed=FixedSpeed(speed))
     p = Plot(
         magnet=magnet,
