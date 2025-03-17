@@ -23,6 +23,10 @@ RUN uv pip install /opt/multicosim
 
 FROM ghcr.io/cpslab-asu/multicosim/base:22.04
 
+LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
+LABEL org.opencontainers.image.description="Controller image for MultiCoSim rover example"
+LABEL org.opencontainers.image.license=BSD-3-Clause
+
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y \
