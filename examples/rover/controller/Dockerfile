@@ -1,9 +1,9 @@
 FROM ubuntu:22.04 AS build
 
-COPY --from=ghcr.io/astral-sh/uv:0.5.29 /uv /usr/bin/
-
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y python3
+
+COPY --from=ghcr.io/astral-sh/uv:0.6.6 /uv /usr/bin/
 
 RUN mkdir /opt/multicosim
 COPY --from=multicosim ./pyproject.toml ./README.md /opt/multicosim
