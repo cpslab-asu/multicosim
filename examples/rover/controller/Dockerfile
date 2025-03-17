@@ -18,7 +18,7 @@ RUN uv venv \
     --python 3.10 \
     --python-preference only-system \
     --relocatable
-RUN uv sync --locked --group container --no-install-project
+RUN uv sync --frozen --group container --no-install-project
 RUN uv pip install /opt/multicosim
 
 FROM ghcr.io/cpslab-asu/multicosim/base:22.04
