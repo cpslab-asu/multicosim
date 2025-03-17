@@ -105,7 +105,7 @@ wheels = [
 ]
 
 [[package]]
-name = "controller"
+name = "multicosim-rover-controller"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
