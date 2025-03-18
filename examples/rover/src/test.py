@@ -51,7 +51,7 @@ def simulation(speed: float, freq: int, magnet: tuple[float, float] | None, *, v
     else:
         magnet_ = None
 
-    gazebo = multicosim.Gazebo()
+    gazebo = multicosim.Gazebo(display=True)
     firmware_ = firmware(verbose=verbose)
     result = firmware_.run(gazebo, freq=freq, magnet=magnet_, speed=FixedSpeed(speed))
     p = Plot(
