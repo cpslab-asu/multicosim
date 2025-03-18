@@ -16,6 +16,7 @@ class Config:
     base_path: pathlib.Path
     world_path: pathlib.Path
     step_size: float
+    display: bool
 
     def create_world(self, *, engine: xml.Element) -> pathlib.Path:
         with self.base_path.open("rb") as file:
@@ -57,7 +58,13 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element):
         raise RuntimeError()
 
     world = config.create_world(engine=engine)
-    cmd = f"gz sim -s -r -v4 {world}"
+
+    cmd = "gz sim"
+
+    if config.display:
+        cmd = f"{cmd} -s"
+
+    cmd = f"{cmd} -r -v4 {world}"
 
     with subprocess.Popen(args=cmd, shell=True, executable="/usr/bin/bash") as proc:
         def shutdown():
@@ -86,8 +93,14 @@ BaseWorld = click.Path(exists=True, dir_okay=False, path_type=pathlib.Path)
 @click.option("-w", "--world", type=WorldPath, default=pathlib.Path("generated.sdf"))
 @click.option("-b", "--base", type=BaseWorld, default=pathlib.Path("resources/worlds/default.sdf"))
 @click.option("-S", "--step-size", type=float, default=0.001)
-def gazebo(ctx: click.Context, world: pathlib.Path, base: pathlib.Path, step_size: float):
-    ctx.obj = Config(base_path=base, world_path=world, step_size=step_size)
+@click.option("-D", "--display", is_flag=True)
+def gazebo(ctx: click.Context, world: pathlib.Path, base: pathlib.Path, step_size: float, display: bool):
+    ctx.obj = Config(
+        base_path=base,
+        world_path=world,
+        step_size=step_size,
+        display=display,
+    )
 
 
 ODESolver: TypeAlias = Literal["quick", "world"]
