@@ -41,10 +41,9 @@ ENV DEBIAN_FRONTEND=
 COPY --from=build /app /app
 COPY ./src /app/src
 
-COPY <<EOF /usr/local/bin/controller
+COPY <<"EOF" /usr/local/bin/controller
 #!/usr/bin/bash
-
-/app/.venv/bin/python3 /app/src/main.py \$@
+/app/.venv/bin/python3 /app/src/main.py $@
 EOF
 
 RUN chmod +x /usr/local/bin/controller
