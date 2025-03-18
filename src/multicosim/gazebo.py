@@ -124,6 +124,7 @@ class Gazebo:
 
     backend: Backend = field(default_factory=ODE)
     step_size: float = field(default=0.001)
+    display: bool = field(default=False)
 
     @property
     def args(self) -> str:
@@ -156,7 +157,8 @@ def start(
     base: Path = Path("resources/world/default.sdf"),
     world: Path = Path("/tmp/generated.sdf"),
     client: Client | None = None,
-    remove: bool = False
+    remove: bool = False,
+    display: bool = False,
 ) -> Generator[Simulation, None, None]:
     """Execute a gazebo simulation and attach it to the given host container.
 
@@ -185,7 +187,12 @@ def start(
     if host.status != "running":
         raise GazeboError("Host container is not running")
 
-    cmd = f"gazebo --base {base} --world {world} {config.args}"
+    cmd = f"gazebo --base {base} --world {world} "
+
+    if display:
+        cmd = f"{cmd} --display"
+
+    cmd = f"{cmd} {config.args}"
     ctx = containers.start(image, command=cmd, host=host, remove=remove, client=client)
 
     with ctx as container:
