@@ -2,7 +2,7 @@ PLATFORMS ?= linux/amd64,linux/arm64
 
 all: images
 
-images: controller gazebo
+images: controller gazebo image
 
 controller:
 	make -C controller PLATFORMS=$(PLATFORMS) image
