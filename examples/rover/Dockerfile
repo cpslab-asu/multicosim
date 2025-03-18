@@ -14,7 +14,8 @@ RUN HATCH_ENV_TYPE_VIRTUAL_PATH=/src/multicosim/.venv hatch --verbose env create
 
 COPY <<EOF /usr/local/bin/rover
 #!/usr/bin/bash
-/src/multicosim/.venv/bin/python3 /src/multicosim/examples/rover/test.py
+/src/multicosim/.venv/bin/python3 /src/multicosim/examples/rover/src/test.py
 EOF
 
 RUN chmod +x /usr/local/bin/rover
+CMD ["/usr/local/bin/rover"]
