@@ -8,7 +8,7 @@ controller:
 	make -C controller PLATFORMS=$(PLATFORMS) image
 
 gazebo:
-	make -C gazebo PLATFORMS=$(PLATFORMS) images
+	make -C gazebo PLATFORMS=$(PLATFORMS) image
 
 image:
 	docker buildx build \
