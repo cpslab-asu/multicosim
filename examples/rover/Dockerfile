@@ -10,7 +10,7 @@ COPY --from=multicosim ./src /src/multicosim/src
 COPY --from=multicosim ./examples /src/multicosim/examples
 
 WORKDIR /src/multicosim
-RUN HATCH_ENV_TYPE_VIRTUAL_PATH=/src/multicosim/.venv hatch env create examples
+RUN HATCH_ENV_TYPE_VIRTUAL_PATH=/src/multicosim/.venv hatch --verbose env create examples
 
 COPY <<EOF /usr/local/bin/rover
 #!/usr/bin/bash
