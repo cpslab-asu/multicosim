@@ -11,6 +11,7 @@ import staliro
 import staliro.optimizers
 import staliro.specifications.rtamt
 
+from controller import errors
 from controller.attacks import FixedSpeed, GaussianMagnet, SpeedController, Magnet
 from controller.messages import Start, Result
 from plots import Plot, plot
