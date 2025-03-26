@@ -5,6 +5,8 @@ from logging import Logger, NullHandler, getLogger
 from math import atan, pi
 from threading import Event, Lock
 from typing import Literal, NewType
+import numpy as np
+from scipy.spatial.transform import Rotation
 
 from gz.transport13 import Node, Publisher, SubscribeOptions
 from gz.math7 import Quaterniond
@@ -106,7 +108,7 @@ class PoseHandler:
     @property
     def heading(self) -> float:
         with self._lock:
-            return self._heading * (180 / pi)
+            return self._heading
 
     @property
     def roll(self) -> float:
@@ -148,8 +150,12 @@ class Rover(automaton.Model):
         return self._pose.position
 
     @property
-    def heading(self) -> float:
+    def true_heading(self) -> float:
         return self._pose.heading
+
+    @property
+    def heading(self) -> float:
+        return self.true_heading
 
     @property
     def roll(self) -> float:
@@ -206,27 +212,15 @@ class NGC(Rover):
     _steering_angle: float  = field(default=0.0, init=False)
 
     @property
-    def _heading(self) -> float:
-        x, y, _ = self._magnetometer.vector
-
-        if y > 0:
-            heading_ = 90 - (atan(x/y) * 180/pi)
-        elif y < 0:
-            heading_ = 270 - (atan(x/y) * 180/pi)
-        elif x > 0:
-            heading_ = 180.0
-        else:
-            heading_ = 0.0
-
-        return heading_
-
-    @property
     def heading_real(self) -> float:
-        return self._heading
+        x, y, _ = self._magnetometer.vector
+        return -np.arctan2(y,x)
 
     @property
     def heading(self) -> float:
-        return self._heading + self._magnet.offset(self.clock, self)
+        x, y, _ = self._magnetometer.vector
+        offset = self.body_offset()
+        return -np.arctan2(y+offset[1],x+offset[0])
 
     @property
     def steering_angle(self) -> float:
@@ -258,6 +252,19 @@ class NGC(Rover):
             self._motors.publish(msg)
             self._velocity = target
             self._logger.info(f"Setting velocity to {target}")
+
+    def body_offset(self) -> tuple[float,float]:
+        orientation = Rotation.from_euler("xyz",np.array([0.0,0.0,self.true_heading]))
+        offset = self._magnet.offset(self.clock, self)
+        body_offset = orientation.inv().apply(np.array([offset[0],offset[1],0.0]))
+        return (body_offset[0],body_offset[1])
+
+    def log_mag_data(self):
+        x, y, _ = self._magnetometer.vector
+        offset = self.body_offset()
+        self._logger.info((f"Magnet data: {x:0.4f},{y:0.4f}. "
+                           f"Offset data: {offset[0]:0.4f},{offset[1]:0.4f}. "
+                           f"Mag with offset: {x+offset[0]:0.4f},{y+offset[1]:0.4f}"))
 
     def wait(self):
         self._pose.wait()

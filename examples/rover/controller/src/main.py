@@ -124,7 +124,7 @@ def serve(port: int):
 @click.option("-w", "--world", default="default")
 @click.option("-f", "--frequency", type=int, default=1)
 @click.option("-s", "--speed", type=float, default=5.0)
-@click.option("-m", "--magnet", nargs=2, type=float, default=None)
+@click.option("-m", "--magnet", nargs=3, type=float, default=None)
 def start(
     ctx: click.Context,
     world: str,
@@ -134,7 +134,7 @@ def start(
 ):
     logger: Logger = ctx.obj["logger"]
     logger.info("No port specified, starting controller using defaults.")
-    magnet_: atk.Magnet = atk.GaussianMagnet(magnet[0], magnet[1], rand.default_rng()) if magnet else atk.StationaryMagnet(0.0)
+    magnet_: atk.Magnet = atk.GaussianMagnet(magnet[0], magnet[1], magnet[2], rand.default_rng()) if magnet else atk.StationaryMagnet(0.0)
     speed_ = atk.FixedSpeed(speed)
     history = run(world, frequency, magnet_, speed_, commands=repeat(None))
 

@@ -41,4 +41,12 @@ def plot(*plots: Plot):
             plot.color,
         )
 
+        last_time = times[len(times)-1]
+        ax.scatter(
+            [plot.trajectory[last_time][0]],
+            [plot.trajectory[last_time][1]],
+            s=None,
+            c="r",
+        )
+
     plt.show(block=True)
