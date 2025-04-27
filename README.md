@@ -14,7 +14,7 @@ necessary. Instructions for building these containers are in the
 
 ## Usage
 
-In order to execute a simulation, simply import the system you are interested in simulating and
+In order to execute a simulation, import the system you are interested in simulating and
 provide the appropriate configuration objects to customize the simulation. The following is a
 simple example to demonstrate some of the configuration options available.
 
