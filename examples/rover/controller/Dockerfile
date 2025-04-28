@@ -18,6 +18,7 @@ RUN uv venv \
     --python 3.10 \
     --python-preference only-system \
     --relocatable
+RUN uv lock
 RUN uv sync --frozen --group container --no-install-project
 RUN uv pip install /opt/multicosim
 

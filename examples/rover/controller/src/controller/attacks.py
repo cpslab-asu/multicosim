@@ -10,32 +10,31 @@ from .automaton import Model, euclidean_distance
 
 
 class Magnet(Protocol):
-    def offset(self, time: float, model: Model) -> float:
+    def offset(self, time: float, model: Model) -> tuple[float,float]:
         ...
-
 
 @dataclass()
 class StationaryMagnet(Magnet):
     magnitude: float
+    x: float = 0.0
+    y: float = 0.0
 
-    def offset(self, time: float, model: Model) -> float:
-        return self.magnitude
+    def offset(self, time: float, model: Model) -> tuple[float,float]:
+        p = (self.x, self.y, 0.0)
+        d = euclidean_distance(p, model.position)
+        scale =  self.magnitude / pow(d, 3)
+        return ((p[0] - model.position[0]) * scale/d, (p[1] - model.position[1]) * scale/d)
 
 
 @dataclass()
-class GaussianMagnet(Magnet):
-    x: float
-    y: float
-    rng: random.Generator
+class GaussianMagnet(StationaryMagnet):
+    rng: random.Generator = random.default_rng()
 
-    def offset(self, time: float, model: Model) -> float:
-        mu_0 = 4 * pi * 10e-7
-        m = 0.8
+    def offset(self, time: float, model: Model) -> tuple[float,float]:
         p = (self.x, self.y, 0.0)
         d = euclidean_distance(p, model.position)
-        scale = (mu_0 + m) / pow(d, 3)
-
-        return self.rng.normal(0.0, 1.0) * scale
+        scale =  self.rng.normal(0.0,1.0) * self.magnitude / pow(d, 3)
+        return ((p[0] - model.position[0]) * scale/d, (p[1] - model.position[1]) * scale/d)
 
 
 class SpeedController:

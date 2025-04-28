@@ -27,6 +27,9 @@ gazebo: base
 px4: gazebo
 	make -C px4 images
 
-images: base gazebo px4
+rover: base
+	make -C examples/rover images
+
+images: base gazebo px4 rover
 
 .PHONY: all wheel base gazebo px4 images

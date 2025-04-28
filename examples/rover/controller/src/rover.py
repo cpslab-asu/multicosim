@@ -5,6 +5,8 @@ from logging import Logger, NullHandler, getLogger
 from math import atan, pi
 from threading import Event, Lock
 from typing import Literal, NewType
+import numpy as np
+from scipy.spatial.transform import Rotation
 
 from gz.transport13 import Node, Publisher, SubscribeOptions
 from gz.math7 import Quaterniond
@@ -15,8 +17,7 @@ from gz.msgs10.entity_factory_pb2 import EntityFactory
 from gz.msgs10.magnetometer_pb2 import Magnetometer
 from gz.msgs10.pose_v_pb2 import Pose_V
 
-from controller import attacks, automaton
-
+from controller import attacks, automaton, errors
 
 def _pose_logger() -> Logger:
     logger = getLogger("rover.pose")
@@ -107,7 +108,7 @@ class PoseHandler:
     @property
     def heading(self) -> float:
         with self._lock:
-            return self._heading * (180 / pi)
+            return self._heading
 
     @property
     def roll(self) -> float:
@@ -149,8 +150,12 @@ class Rover(automaton.Model):
         return self._pose.position
 
     @property
-    def heading(self) -> float:
+    def true_heading(self) -> float:
         return self._pose.heading
+
+    @property
+    def heading(self) -> float:
+        return self.true_heading
 
     @property
     def roll(self) -> float:
@@ -207,27 +212,15 @@ class NGC(Rover):
     _steering_angle: float  = field(default=0.0, init=False)
 
     @property
-    def _heading(self) -> float:
-        x, y, _ = self._magnetometer.vector
-
-        if y > 0:
-            heading_ = 90 - (atan(x/y) * 180/pi)
-        elif y < 0:
-            heading_ = 270 - (atan(x/y) * 180/pi)
-        elif x > 0:
-            heading_ = 180.0
-        else:
-            heading_ = 0.0
-
-        return heading_
-
-    @property
     def heading_real(self) -> float:
-        return self._heading
+        x, y, _ = self._magnetometer.vector
+        return -np.arctan2(y,x)
 
     @property
     def heading(self) -> float:
-        return self._heading + self._magnet.offset(self.clock, self)
+        x, y, _ = self._magnetometer.vector
+        offset = self.body_offset()
+        return -np.arctan2(y+offset[1],x+offset[0])
 
     @property
     def steering_angle(self) -> float:
@@ -260,18 +253,22 @@ class NGC(Rover):
             self._velocity = target
             self._logger.info(f"Setting velocity to {target}")
 
+    def body_offset(self) -> tuple[float,float]:
+        orientation = Rotation.from_euler("xyz",np.array([0.0,0.0,self.true_heading]))
+        offset = self._magnet.offset(self.clock, self)
+        body_offset = orientation.inv().apply(np.array([offset[0],offset[1],0.0]))
+        return (body_offset[0],body_offset[1])
+
+    def log_mag_data(self):
+        x, y, _ = self._magnetometer.vector
+        offset = self.body_offset()
+        self._logger.info((f"Magnet data: {x:0.4f},{y:0.4f}. "
+                           f"Offset data: {offset[0]:0.4f},{offset[1]:0.4f}. "
+                           f"Mag with offset: {x+offset[0]:0.4f},{y+offset[1]:0.4f}"))
+
     def wait(self):
         self._pose.wait()
         self._magnetometer.wait()
-
-
-class RoverError(Exception):
-    pass
-
-
-class TransportError(RoverError):
-    pass
-
 
 def _create_model(
     world: str,
@@ -291,10 +288,10 @@ def _create_model(
     logger.debug(f"Reply: {rep}")
 
     if not res:
-        raise TransportError("Failed to send Gazebo message for rover creation")
+        raise errors.TransportError("Failed to send Gazebo message for rover creation")
 
     if not rep.data:
-        raise RoverError("Could not create rover Gazebo model")
+        raise errors.RoverError("Could not create rover Gazebo model")
 
     return InitializedNode(client)
 
@@ -310,7 +307,7 @@ def _pose_handler(
     pose_options.msgs_per_sec = 10
 
     if not node.subscribe(Pose_V, f"/world/{world}/pose/info", pose, pose_options):
-        raise TransportError()
+        raise errors.TransportError()
 
     return pose
 
@@ -326,7 +323,7 @@ def _magnetometer_handler(
     magnetometer_options.msgs_per_sec = 10
 
     if not node.subscribe(Magnetometer, topic, magnetometer, magnetometer_options):
-        raise TransportError()
+        raise errors.TransportError()
 
     return magnetometer
 
@@ -344,7 +341,7 @@ def r1(world: str, *, name: str = "r1_rover") -> R1:
     motors = node.advertise(f"/model/{name}/command/motor_speed", Actuators)
 
     if not motors.valid():
-        raise TransportError("Could not register publisher for motor control")
+        raise errors.TransportError("Could not register publisher for motor control")
 
     logger.info("Initialized motor topic publisher.")
 
@@ -367,13 +364,13 @@ def ngc(world: str, *, magnet: attacks.Magnet, name: str = "ackermann") -> NGC:
     motors = node.advertise(f"/model/{name}/command/motor_speed", Actuators)
 
     if not motors.valid():
-        raise TransportError("Could not register publisher for motor control")
+        raise errors.TransportError("Could not register publisher for motor control")
 
     logger.info("Initialized motor topic publisher.")
     servos = node.advertise(f"/model/{name}/servo_0", Double)
 
     if not servos.valid():
-        raise TransportError("Could not register publisher for servo_0 control")
+        raise errors.TransportError("Could not register publisher for servo_0 control")
 
     logger.info("Initialized servo topic publisher.")
 
