@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Generator, Literal, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ContextManager, Generator, Literal, TypeVar, cast
 
 import docker.errors
 import docker.models.containers
 import typing_extensions
 
 from . import images
+from .components import Component, Instance
+from .simulations import Simulation, Simulator
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from docker import DockerClient as Client
+    from docker.models.networks import Network
 
 Container: typing_extensions.TypeAlias = docker.models.containers.Container
 PortProtocol: typing_extensions.TypeAlias = Literal["tcp", "udp"]
@@ -85,3 +89,34 @@ def start(
         yield container
     finally:
         cleanup(container, remove=remove)
+
+
+_T =  TypeVar("_T")
+
+
+@dataclass()
+class ContainerInstance(Instance[_T]):
+    container: Container
+
+    @typing_extensions.override
+    def run(self):
+        ...
+
+
+@dataclass()
+class ContainerComponent(Component[_T]):
+    image: str
+
+    @typing_extensions.override
+    def start(self) -> ContextManager[ContainerInstance[_T]]:
+        ...
+
+
+@dataclass()
+class DockerSimulation(Simulation):
+    network: Network
+
+
+@dataclass()
+class ContainerSimulator(Simulator):
+    ...
