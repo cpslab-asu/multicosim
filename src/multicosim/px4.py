@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable, Iterator
 from enum import IntEnum
 from pathlib import Path
 from typing import Final
 
 import attrs
+import docker
 
 from . import gazebo as gz
 from . import firmware as fw
 from . import __version__
+from .simulations import simulator
 
 
 @attrs.frozen()
@@ -131,3 +133,29 @@ class PX4:
 Model = PX4.Model
 
 __all__ = ["DEFAULT_MISSION", "Model", "Pose", "PX4", "State", "Waypoint", "simulate"]
+
+
+class Firmware:
+    def __init__(self, container: Container):
+        self.container = container
+
+
+@simulator
+def px4() -> Generator[Firmware, None, None]:
+    client = docker.from_env()
+    container = client.containers.run(
+        image="",
+        command="",
+        detach=True,
+        ports={
+            f"{PORT}/tcp": None,
+        }
+    )
+
+    try:
+        yield Firmware()
+    finally:
+        container.reload()
+
+        if not container.status == "exited":
+            ...
