@@ -113,7 +113,7 @@ class ContainerComponent(Component[_T]):
 
 
 @dataclass()
-class DockerSimulation(Simulation):
+class ContainerSimulation(Simulation):
     network: Network
 
 
