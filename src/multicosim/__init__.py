@@ -1,16 +1,15 @@
-from .__about__ import __version__
-from .firmware import manage, serve
-from .gazebo import Bullet, Dart, Gazebo, ODE, Simbody
+from .docker import ContainerComponent
+from .gazebo import Bullet, Dart, ODE, Simbody
 from .px4 import PX4
+
+__version__ = "0.2.0"
 
 __all__ = [
     "__version__",
     "Bullet",
+    "ContainerComponent",
     "Dart",
-    "Gazebo",
     "ODE",
     "PX4",
     "Simbody",
-    "manage",
-    "serve",
 ]
