@@ -16,7 +16,7 @@ import multicosim.px4 as px4
 def component(container: str | None, *, verbose: bool, remove: bool):
     if verbose:
         logging.basicConfig()
-        logging.getLogger("examples.px4").setLevel(logging.DEBUG)
+        logging.getLogger("examples.component").setLevel(logging.DEBUG)
 
     # Specify the topic for the GPS data produced by gazebo
     source_topic = "navsat_original"
@@ -29,7 +29,7 @@ def component(container: str | None, *, verbose: bool, remove: bool):
     # Create the noisy GPS component that reads from the source Gazebo topic and broadcasts to the topic PX4 is listening to
     noisy_gps = mcs.ContainerComponent(
         image="ghcr.io/cpslab-asu/multicosim/examples/noisy-gps:latest",
-        command=f"noisy-gps --verbose --topic {source_topic}",
+        command=f"noisy-gps --verbose --topic {source_topic} --mean 0 --std-dev 1",
     )
 
     # Create the PX4 simulator with the Gazebo and GPS components
