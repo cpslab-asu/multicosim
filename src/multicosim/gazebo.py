@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+import attrs
 import docker
+from typing_extensions import override
 
-from . import containers
+from .docker import ContainerComponent, ContainerNode, Environment, Node
+from .simulations import Component
 
 if TYPE_CHECKING:
     from docker import DockerClient as Client
@@ -114,7 +117,7 @@ class Simbody(Backend):
 
 
 @dataclass()
-class Gazebo:
+class _Gazebo:
     """Gazebo simulation configuration.
 
     Args:
@@ -130,6 +133,56 @@ class Gazebo:
         """Arguments to gazebo program representing the backend options."""
 
         return f"--step-size {self.step_size} {self.backend.args}"
+
+
+@attrs.define()
+class GazeboContainerNode(Node):
+    world: str
+    node: ContainerNode
+
+    @override
+    def stop(self):
+        return self.node.stop()
+
+
+class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
+    def __init__(
+        self,
+        image: str = "ghcr.io/cpslab-asu/multicosim/gazebo:harmonic",
+        template: str = "/app/resources/worlds/empty.sdf",
+        world: str = "generated",
+        backend: Backend | None = None,
+        step_size: float = 0.001,
+        sensor_topics: Mapping[str, str] | None = None,
+        *,
+        remove: bool = False,
+    ):
+        if not backend:
+            backend = ODE()
+
+        if not sensor_topics:
+            sensor_topics = {}
+
+        parts = [
+            "gazebo",
+            "--verbose",
+            f"--base {template}",
+            f"--world {world}",
+            f"--step-size {step_size}",
+        ]
+
+        for old_topic, new_topic in sensor_topics.items():
+            parts.append(f"--remap-topic {old_topic} {new_topic}")
+
+        prefix = " ".join(parts)
+        command = f"{prefix} {backend.args}"
+
+        self.world = world
+        self.component = ContainerComponent(image=image, command=command, remove=remove)
+
+    @override
+    def start(self, environment: Environment) -> GazeboContainerNode:
+        return GazeboContainerNode(self.world, self.component.start(environment))
 
 
 @dataclass()
@@ -149,7 +202,7 @@ class GazeboError(Exception):
 
 @contextmanager
 def start(
-    config: Gazebo,
+    config: _Gazebo,
     host: Container,
     *,
     image: str = "ghcr.io/cpslab-asu/multicosim/gazebo:harmonic",
