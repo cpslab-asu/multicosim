@@ -27,3 +27,5 @@ ENV DEBIAN_FRONTEND=
 
 COPY --from=fetch /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg /usr/share/keyrings/
 COPY --from=fetch /etc/apt/sources.list.d/gazebo-stable.list /etc/apt/sources.list.d/
+
+ENV GZ_PARTITION=multicosim
