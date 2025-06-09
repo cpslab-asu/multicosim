@@ -1,39 +1,55 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
-from typing import ContextManager, Generic, TypeVar
+from typing import Generic, Protocol, TypeVar
 
-from typing_extensions import ParamSpec, override
-
-SimT = TypeVar("SimT")
+import attrs
+import nanoid
 
 
-class Simulator(Generic[SimT]):
-    def start(self) -> ContextManager[SimT]:
+class Node(Protocol):
+    """A node in the executing simulation tree."""
+
+    def stop(self):
         ...
 
 
-class DefaultSimulator(Simulator[SimT]):
-    def __init__(self, factory: Callable[[], ContextManager[SimT]]):
-        self.factory = factory
-
-    @override
-    def start(self) -> ContextManager[SimT]:
-        return self.factory()
+NodeT = TypeVar("NodeT", covariant=True, bound=Node)
 
 
-P = ParamSpec("P")
- 
+@attrs.frozen(hash=True)
+class NodeId(Generic[NodeT]):
+    _id: str = attrs.field(factory=nanoid.generate, init=False)
 
-def simulator(func: Callable[P, Generator[SimT, None, None]]) -> Callable[P, Simulator[SimT]]:
-    """Transform a generator into a simulator instance."""
 
-    def _wrapper(*args: P.args, **kwargs: P.kwargs) -> Simulator[SimT]:
-        @contextmanager
-        def _inner() -> Generator[SimT, None, None]:
-            return func(*args, **kwargs)
+MsgT = TypeVar("MsgT", contravariant=True)
+ResultT = TypeVar("ResultT", covariant=True)
 
-        return DefaultSimulator(_inner)
 
-    return _wrapper
+class CommunicationNode(Node, Protocol[MsgT, ResultT]):
+    def send(self, msg: MsgT) -> ResultT:
+        ...
+
+
+EnvT = TypeVar("EnvT", contravariant=True)
+
+
+class Component(Protocol[EnvT, NodeT]):
+    """A component in the simulator tree."""
+
+    def start(self, environment: EnvT) -> NodeT:
+        ...
+
+
+EnvT_co = TypeVar("EnvT_co", covariant=True)
+NodeIdT = TypeVar("NodeIdT", covariant=True)
+SimT = TypeVar("SimT", covariant=True)
+
+
+class Simulator(Protocol[EnvT_co, SimT]):
+    """A tree of components representing the system to be simulated."""
+
+    def add(self, component: Component[EnvT_co, NodeT]) -> NodeId[NodeT]:
+        ...
+
+    def start(self) -> SimT:
+        ...
