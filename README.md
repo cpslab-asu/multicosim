@@ -110,7 +110,7 @@ a specific system there will be a system container and possibly a specialized ga
 an example, to run PX4 simulations you will need to build the `px4-firmware` and `px4-gazebo` make
 targets if you cannot download the images.
 
-## Runing The Examples
+## Running The Examples
 
 Since this library is built using **Hatch**, we can utilize the environment management
 functionality to help simply running the examples. Each example has a hatch
