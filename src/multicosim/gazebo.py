@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Generator, Mapping
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import IntEnum
@@ -150,10 +150,11 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         self,
         image: str = "ghcr.io/cpslab-asu/multicosim/gazebo:harmonic",
         template: str = "/app/resources/worlds/empty.sdf",
+        model_dir: Path = Path("/app/resources/models"),    
         world: str = "generated",
         backend: Backend | None = None,
         step_size: float = 0.001,
-        sensor_topics: Mapping[str, str] | None = None,
+        sensor_topics: Iterable[tuple[str, str, str]] | None = None,
         *,
         remove: bool = False,
     ):
@@ -169,10 +170,11 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
             f"--base {template}",
             f"--world {world}",
             f"--step-size {step_size}",
+            f"--model-dir {model_dir}",
         ]
 
-        for old_topic, new_topic in sensor_topics.items():
-            parts.append(f"--remap-topic {old_topic} {new_topic}")
+        for model_name, sensor_name, topic_name in sensor_topics:
+            parts.append(f"--sensor-topic {model_name} {sensor_name} {topic_name}")
 
         prefix = " ".join(parts)
         command = f"{prefix} {backend.args}"
