@@ -7,7 +7,7 @@ name = "multicosim"
 dynamic = ["version"]
 description = 'Manage gazebo simulations using docker'
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "MIT"
 keywords = []
 authors = [
@@ -97,17 +97,17 @@ exclude_lines = [
 ]
 
 [tool.pyright]
-pythonVersion = "3.8"
+pythonVersion = "3.9"
 include = ["src"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 files = ["src"]
 
 [tool.ruff]
 line-length = 100
 indent-width = 4
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.format]
 quote-style = "double"
