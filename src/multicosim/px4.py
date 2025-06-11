@@ -1,32 +1,35 @@
 from __future__ import annotations
 
-from collections.abc import Generator, Iterable, Iterator, Mapping
-from dataclasses import dataclass
+from collections.abc import Iterable, Iterator, Mapping
 from enum import IntEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, ContextManager, Final, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, ContextManager, Final, Protocol, TypeVar
 from typing_extensions import override
 
 import attrs
-import docker
-import docker.models.containers
-import docker.models.networks
 import numpy as np
 import numpy.typing as npt
 
 from . import __version__
-from . import firmware as fw
-from . import gazebo as gz
-from .gazebo import Backend, GazeboContainerComponent, GazeboContainerNode
-from .gazebo import Gazebo as _Gazebo
-from .docker import ContainerSimulator, Environment, Firmware as _Firmware, FirmwareComponent, FirmwareNode, Simulation
+from .gazebo import Backend, GazeboContainerNode
+from .gazebo import GazeboContainerComponent as _GazeboContainerComponent
+from .docker import ContainerSimulator, Environment, ContainerSimulation
 from .docker import NodeId, Simulator
-from .docker import Simulation
-from .simulations import Node, simulator
-from .simulations import Component
+from .firmware import FirmwareContainerComponent, FirmwareContainerNode
+from .simulations import Component, Node, Simulation, Simulation
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+
+class Vehicle(IntEnum):
+    X500 = 0
+
+    def __str__(self) -> str:
+        if self is Vehicle.X500:
+            return "x500"
+
+        raise ValueError(f"Unknown vehicle type {self}")
 
 
 @attrs.frozen()
@@ -64,11 +67,13 @@ class State:
 PORT: Final[int] = 5556
 
 
+def _mission(waypoints: Iterable[Waypoint]) -> list[Waypoint]:
+    return list(waypoints)
+
+
 @attrs.frozen()
-class StartMsg:
-    mission: list[Waypoint]
-    model: Model
-    world: str
+class Data:
+    mission: list[Waypoint] = attrs.field(converter=_mission)
 
 
 @attrs.frozen()
@@ -79,168 +84,39 @@ class States(Iterable[State]):
         return iter(self.values)
 
 
-@fw.manage(
-    firmware_image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
-    gazebo_image="ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic",
-    command=f"/usr/local/bin/firmware --port {PORT} --verbose",
-    port=PORT,
-    template=Path("resources/worlds/default.sdf"),
-    rtype=States,
-)
-def firmware(world: str, mission: list[Waypoint], model: Model) -> StartMsg:
-    return StartMsg(mission, model, world)
-
-
-def simulate(
-    mission: list[Waypoint],
-    model: Model,
-    gazebo: gz.Gazebo,
-    *,
-    remove: bool = False,
-) -> dict[float, Pose]:
-    """Execute a simulation using the PX4 using the given configuration.
-
-    Args:
-        px4cfg: The configuration for the PX4 system
-        gzcfg: The configuration for the simulator
-        container: The existing PX4 container to use instead of creating a new one
-        client: The docker client to use, if any
-        context: The ZeroMQ context to use, if any
-
-    Returns:
-        A list of poses representing the position of the vehicle in meters over the
-        course of the mission provided in the PX4 configuration.
-    """
-
-    states = firmware.run(gazebo, mission=mission, model=model, remove=remove)
-    return {state.time: state.pose for state in states}
-
-
-@attrs.frozen()
-class _PX4:
-    """Configuration parameters for a simulated PX4-controlled vehicle.
-
-    Args:
-        model: The vehicle model to use for the simulation
-        waypoints: The mission for the vehicle to execute during the simulation
-        world: The name of the Gazebo world
-    """
-
-    class Model(IntEnum):
-        """PX4 Vehicle model to use for simulation.
-
-        The X500 is a light-weight quadrotor aircraft model.
-        """
-
-        X500 = 0
-
-    model: Model = attrs.field(default=Model.X500)
-
-    def simulate(
-        self,
-        gazebo: gz.Gazebo,
-        mission: list[Waypoint] | None = None,
-        *,
-        remove: bool = False
-    ) -> dict[float, Pose]:
-        return simulate(mission or DEFAULT_MISSION, self.model, gazebo, remove=remove)
-
-Model = PX4.Model
-
-__all__ = ["DEFAULT_MISSION", "Model", "Pose", "PX4", "State", "Waypoint", "simulate"]
+__all__ = ["Pose", "PX4", "State", "Waypoint"]
 
 
 T = TypeVar("T", covariant=True)
 
 
-class Attachable(Protocol[T]):
-    def attach(self, container: docker.models.containers.Container) -> ContextManager[T]:
-        ...
-
-
-class Connectable(Protocol[T]):
-    def connect(self, network: docker.models.networks.Network) -> ContextManager[T]:
-        ...
-
-
-@dataclass()
-class Firmware:
-    network: docker.models.networks.Network
-    container: docker.models.containers.Container
-    port: int
-
-    def attach(self, component: Attachable[T]) -> ContextManager[T]:
-        return component.attach(self.container)
-
-    def connect(self, component: Connectable[T]) -> ContextManager[T]:
-        return component.connect(self.network)
-
-    def run(self, config: Configuration) -> npt.NDArray[np.float_]:
-        ...
-
-
 DEFAULT_PORT: Final[int] = 5556
-
-
-@simulator
-def px4(*, port: int = DEFAULT_PORT) -> Generator[Firmware, None, None]:
-    client = docker.from_env()
-    network_name = ""
-    network = client.networks.create(network_name)
-    container = client.containers.run(
-        image="",
-        command="",
-        detach=True,
-        network=network_name,
-        ports={
-            f"{port}/tcp": None,
-        }
-    )
-
-    try:
-        yield Firmware(network, container, port)
-    finally:
-        container.reload()
-
-        if container.status != "exited":
-            ...
-
-
-def simulate(
-    config: Configuration,
-    gazebo: Gazebo,
-    *,
-    port: int = DEFAULT_PORT,
-    remove: bool = False
-) -> npt.NDArray[np.float_]:
-    system = px4(port=port)
-
-    with system.start() as fw, fw.attach(gazebo):
-        result = fw.run(config)
-
-    return result
-
-
-def _mission(waypoints: Iterable[Waypoint]) -> list[Waypoint]:
-    return list(waypoints)
 
 
 @attrs.frozen()
 class Configuration:
     mission: list[Waypoint] = attrs.field(converter=_mission)
-    model: str = attrs.field(default="x500")
 
 
-class Gazebo(Component[Environment, GazeboContainerNode]):
+@attrs.define()
+class Gazebo:
+    world: str = attrs.field(default="iris_runway")
+    backend: Backend | None = attrs.field(default=None)
+    step_size: float = attrs.field(default=0.001)
+    sensor_topics: Mapping[str, str] = attrs.field(factory=dict)
+    remove: bool = attrs.field(default=True, kw_only=True)
+
+
+class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
     def __init__(self,
         world: str = "iris_runway",
         backend: Backend | None = None,
         step_size: float = 0.001,
-        sensor_topics: Mapping[str, str] | None = None,
+        sensor_topics: Iterable[tuple[str, str, str]] | None = None,
         *,
         remove: bool = True,
     ):
-        self.component = GazeboContainerComponent(
+        self.component = _GazeboContainerComponent(
             image=f"ghcr.io/cpslab-asu/multicosim/px4/gazebo:{__version__}",
             template=f"/app/resources/worlds/{world}.sdf",
             backend=backend,
@@ -257,9 +133,69 @@ class Gazebo(Component[Environment, GazeboContainerNode]):
     def start(self, environment: Environment) -> GazeboContainerNode:
         return self.component.start(environment)
 
+    @classmethod
+    def from_configuration(cls, config: Gazebo, model: str) -> GazeboContainerComponent:
+        return cls(
+            world=config.world,
+            backend=config.backend,
+            step_size=config.step_size,
+            sensor_topics=[
+                (model, sensor, topic) for sensor, topic in config.sensor_topics.items()
+            ],
+            remove=config.remove,
+        )
+
+
+def _resolve_vehicle_model(vehicle: Vehicle) -> str:
+    """Determine the name of the actual model to edit.
+
+    The names for the PX4 models loaded by the firmware are often built off of a common base model
+    that contains all of the actual sensor definitions. Therefore, this function ensures that the
+    proper model file is modified.
+
+    Args:
+        model: The PX4 model being simulated
+
+    Returns:
+        The name of the base model containing the sensor definitions.
+    """
+
+    if vehicle is Vehicle.X500:
+        return "x500_base"
+
+    raise ValueError(f"Unknown PX4 vehicle: {vehicle}")
+
+
+class PX4Node(Node):
+    def __init__(self, firmware: FirmwareContainerNode[Configuration, States], gazebo: GazeboContainerNode):
+        self.firmware = firmware
+        self.gazebo = gazebo
+
+    def stop(self):
+        self.gazebo.stop()
+        self.firmware.stop()
+
+
+class PX4Component(Component[Environment, PX4Node]):
+    def __init__(self, gazebo: Gazebo, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False):
+        self.port = 5556
+        self.vehicle = vehicle
+        self.gazebo = GazeboContainerComponent.from_configuration(gazebo, _resolve_vehicle_model(vehicle))
+        self.firmware = FirmwareContainerComponent(
+            image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
+            command=f"firmware --port {self.port} --world {gazebo.world} --model {vehicle}",
+            port=self.port,
+            message_type=Configuration,
+            response_type=States,
+            remove=remove,
+        )
+
+    def start(self, environment: Environment) -> PX4Node:
+        return PX4Node(self.firmware.start(environment), self.gazebo.start(environment))
+
 
 @attrs.define()
-class PX4Simulation:
+class PX4Simulation(Simulation):
     """A PX4 simulation execution.
 
     Args:
@@ -268,21 +204,23 @@ class PX4Simulation:
         gz_id: The id of the node executing the gazebo simulator
     """
 
-    simulation: Simulation
-    fw_id: NodeId[FirmwareNode]
-    gz_id: NodeId[GazeboContainerNode]
+    simulation: ContainerSimulation
+    node_id: NodeId[PX4Node]
 
     @property
-    def firmware(self) -> FirmwareNode[Configuration, NDArray[np.float64]]:
+    def firmware(self) -> FirmwareContainerNode[Configuration, States]:
         """The simulation node of the executing firmware."""
 
-        return self.simulation.get(self.fw_id)
+        return self.simulation.get(self.node_id).firmware
 
     @property
     def gazebo(self) -> GazeboContainerNode:
-        """The simulation node of the executing gazebo simulator."""
+        """The simulation node of the executing firmware."""
 
-        return self.simulation.get(self.gz_id)
+        return self.simulation.get(self.node_id).gazebo
+
+    def stop(self):
+        return self.simulation.stop()
 
 
 NodeT = TypeVar("NodeT", bound=Node)
@@ -295,19 +233,18 @@ class PX4(Simulator[Environment, PX4Simulation]):
         gazebo: The gazebo component to use for simulation
     """
 
-    def __init__(self, gazebo: Gazebo):
-        port = 5556
-        firmware = FirmwareComponent(
-            image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
-            command=f"firmware --port {port} --world {gazebo.world}",
-            port=port,
-            message_type=Configuration,
-            response_type=np.ndarray,
-        )
-        
+    def __init__(self, gazebo: Gazebo, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False):
         self.simulator = ContainerSimulator()
-        self.firmware_id = self.simulator.add(firmware)
-        self.gazebo_id = self.simulator.add(gazebo)
+        self.component = PX4Component(gazebo, vehicle, remove=remove)
+        self.node_id = self.simulator.add(self.component)
+
+    @property
+    def firmware(self) -> FirmwareContainerComponent[Configuration, States]:
+        return self.component.firmware
+
+    @property
+    def gazebo(self) -> GazeboContainerComponent:
+        return self.component.gazebo
 
     @override
     def add(self, component: Component[Environment, NodeT]) -> NodeId[NodeT]:
@@ -315,4 +252,4 @@ class PX4(Simulator[Environment, PX4Simulation]):
 
     @override
     def start(self) -> PX4Simulation:
-        return PX4Simulation(self.simulator.start(), self.firmware_id, self.gazebo_id)
+        return PX4Simulation(self.simulator.start(), self.node_id)
