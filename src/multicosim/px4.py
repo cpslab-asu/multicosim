@@ -2,24 +2,17 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping
 from enum import IntEnum
-from pathlib import Path
-from typing import TYPE_CHECKING, ContextManager, Final, Protocol, TypeVar
-from typing_extensions import override
+from typing import Final, TypeVar
 
 import attrs
-import numpy as np
-import numpy.typing as npt
+from typing_extensions import override
 
 from . import __version__
+from .docker import ContainerSimulation, ContainerSimulator, Environment, NodeId, Simulator
+from .firmware import FirmwareContainerComponent, FirmwareContainerNode
 from .gazebo import Backend, GazeboContainerNode
 from .gazebo import GazeboContainerComponent as _GazeboContainerComponent
-from .docker import ContainerSimulator, Environment, ContainerSimulation
-from .docker import NodeId, Simulator
-from .firmware import FirmwareContainerComponent, FirmwareContainerNode
-from .simulations import Component, Node, Simulation, Simulation
-
-if TYPE_CHECKING:
-    from numpy.typing import NDArray
+from .simulations import Component, Node, Simulation
 
 
 class Vehicle(IntEnum):

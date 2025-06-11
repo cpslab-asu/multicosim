@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator, Iterable, Mapping
 from contextlib import ExitStack, contextmanager
-from typing import TYPE_CHECKING, Generic, Literal, NewType, TypeVar, cast
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar, cast
 
 import attrs
 import docker
@@ -10,9 +10,8 @@ import nanoid
 import zmq
 from typing_extensions import override
 
-from .simulations import CommunicationNode, Component, Node, NodeId, Simulator, Simulation
+from .simulations import CommunicationNode, Component, Node, NodeId, Simulation, Simulator
 
- 
 if TYPE_CHECKING:
     from docker import DockerClient
     from docker.models.containers import Container

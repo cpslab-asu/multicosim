@@ -1,5 +1,5 @@
 from .docker import ContainerComponent
-from .gazebo import Bullet, Dart, ODE, Simbody
+from .gazebo import ODE, Bullet, Dart, Simbody
 from .px4 import PX4
 
 __version__ = "0.2.0"
