@@ -10,7 +10,7 @@ import nanoid
 import zmq
 from typing_extensions import override
 
-from .simulations import CommunicationNode, Component, Node, NodeId, Simulator
+from .simulations import CommunicationNode, Component, Node, NodeId, Simulator, Simulation
 
  
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ def _nodes(nodes: Mapping[NodeId, Node]) -> dict[NodeId, Node]:
 
 
 @attrs.define()
-class Simulation:
+class ContainerSimulation(Simulation):
     """A running simulation of multiple components executing in Docker containers.
 
     Args:
@@ -48,7 +48,7 @@ class Environment:
     network_name: str
 
 
-class ContainerSimulator(Simulator[Environment, Simulation]):
+class ContainerSimulator(Simulator[Environment, ContainerSimulation]):
     """A tree of components representing a simulator for a given system using Docker containers.
 
     Args:
@@ -86,13 +86,13 @@ class ContainerSimulator(Simulator[Environment, Simulation]):
         return component_id
 
     @override
-    def start(self) -> Simulation:
+    def start(self) -> ContainerSimulation:
         nodes = {
             node_id: component.start(self.env)
             for node_id, component in self.components.items()
         }
 
-        return Simulation(nodes)
+        return ContainerSimulation(nodes)
 
 
 @contextmanager
