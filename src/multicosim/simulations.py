@@ -40,9 +40,14 @@ class Component(Protocol[EnvT, NodeT]):
         ...
 
 
+class Simulation(Protocol):
+    def stop(self):
+        ...
+
+
 EnvT_co = TypeVar("EnvT_co", covariant=True)
 NodeIdT = TypeVar("NodeIdT", covariant=True)
-SimT = TypeVar("SimT", covariant=True)
+SimT = TypeVar("SimT", bound=Simulation, covariant=True)
 
 
 class Simulator(Protocol[EnvT_co, SimT]):
