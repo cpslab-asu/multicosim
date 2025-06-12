@@ -11,6 +11,7 @@ import staliro
 import staliro.optimizers
 import staliro.specifications.rtamt
 
+from controller import errors
 from controller.attacks import FixedSpeed, GaussianMagnet, SpeedController, Magnet
 from controller.messages import Start, Result
 from plots import Plot, plot
@@ -40,14 +41,15 @@ def firmware(*, verbose: bool):
 
 
 @click.command("simulation")
-@click.option("-f", "--frequency", "freq", type=int, default=2)
+@click.option("-f", "--frequency", "freq", type=int, default=10)
 @click.option("-s", "--speed", type=float, default=5.0)
-@click.option("-m", "--magnet", type=float, nargs=2, default=None)
+@click.option("-m", "--magnet", type=float, nargs=3, default=None)
 @click.option("-v", "--verbose", is_flag=True)
-def simulation(speed: float, freq: int, magnet: tuple[float, float] | None, *, verbose: bool):
+def simulation(speed: float, freq: int, magnet: tuple[float, float, float] | None, *, verbose: bool):
+    mag_pos = None
     if magnet:
-        rng = rand.default_rng()
-        magnet_ = GaussianMagnet(x=magnet[0], y=magnet[1], rng=rng)
+        magnet_ = StationaryMagnet(magnitude=magnet[0], x=magnet[1], y=magnet[2])
+        mag_pos = (magnet[1],magnet[2])
     else:
         magnet_ = None
 
@@ -55,7 +57,7 @@ def simulation(speed: float, freq: int, magnet: tuple[float, float] | None, *, v
     firmware_ = firmware(verbose=verbose)
     result = firmware_.run(gazebo, freq=freq, magnet=magnet_, speed=FixedSpeed(speed))
     p = Plot(
-        magnet=magnet,
+        magnet=mag_pos,
         trajectory=staliro.Trace({
             step.time: [step.position[0], step.position[1]] for step in result.history
         }),
