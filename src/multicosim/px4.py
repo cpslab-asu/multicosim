@@ -12,7 +12,7 @@ from .docker import ContainerSimulation, ContainerSimulator, Environment, NodeId
 from .firmware import FirmwareContainerComponent, FirmwareContainerNode
 from .gazebo import Backend, GazeboContainerNode
 from .gazebo import GazeboContainerComponent as _GazeboContainerComponent
-from .simulations import Component, Node, Simulation
+from .simulations import CommunicationNode, Component, Node, Simulation
 
 
 class Vehicle(IntEnum):
@@ -159,14 +159,27 @@ def _resolve_vehicle_model(vehicle: Vehicle) -> str:
     raise ValueError(f"Unknown PX4 vehicle: {vehicle}")
 
 
-class PX4Node(Node):
-    def __init__(self, firmware: FirmwareContainerNode[Configuration, States], gazebo: GazeboContainerNode):
-        self.firmware = firmware
-        self.gazebo = gazebo
+class FirmwareConfiguration:
+    def __init__(self, configuration: Configuration, vehicle: Vehicle, world: str):
+        self.mission = configuration.mission
+        self.vehicle = vehicle
+        self.world = world
+
+
+@attrs.define()
+class PX4Node(CommunicationNode[Configuration, States]):
+    gazebo: GazeboContainerNode
+    _firmware: FirmwareContainerNode[FirmwareConfiguration, States]
+    _vehicle: Vehicle
+    _world: str
+
+    @override
+    def send(self, msg: Configuration) -> States:
+        return self._firmware.send(FirmwareConfiguration(msg, self._vehicle, self._world))
 
     def stop(self):
         self.gazebo.stop()
-        self.firmware.stop()
+        self._firmware.stop()
 
 
 class PX4Component(Component[Environment, PX4Node]):
@@ -178,13 +191,18 @@ class PX4Component(Component[Environment, PX4Node]):
             image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
             command=f"firmware --port {self.port} --world {gazebo.world} --model {vehicle}",
             port=self.port,
-            message_type=Configuration,
+            message_type=FirmwareConfiguration,
             response_type=States,
             remove=remove,
         )
 
     def start(self, environment: Environment) -> PX4Node:
-        return PX4Node(self.firmware.start(environment), self.gazebo.start(environment))
+        return PX4Node(
+            self.gazebo.start(environment),
+            self.firmware.start(environment),
+            self.vehicle,
+            self.gazebo.world,
+        )
 
 
 @attrs.define()
@@ -201,10 +219,10 @@ class PX4Simulation(Simulation):
     node_id: NodeId[PX4Node]
 
     @property
-    def firmware(self) -> FirmwareContainerNode[Configuration, States]:
+    def firmware(self) -> PX4Node:
         """The simulation node of the executing firmware."""
 
-        return self.simulation.get(self.node_id).firmware
+        return self.simulation.get(self.node_id)
 
     @property
     def gazebo(self) -> GazeboContainerNode:
@@ -232,8 +250,8 @@ class PX4(Simulator[Environment, PX4Simulation]):
         self.node_id = self.simulator.add(self.component)
 
     @property
-    def firmware(self) -> FirmwareContainerComponent[Configuration, States]:
-        return self.component.firmware
+    def px4(self) -> PX4Component:
+        return self.component
 
     @property
     def gazebo(self) -> GazeboContainerComponent:
