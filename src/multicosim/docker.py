@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator, Iterable, Mapping
 from contextlib import ExitStack, contextmanager
+from threading import Event, Thread
 from typing import TYPE_CHECKING, Generic, Literal, TypeVar, cast
 
 import attrs
@@ -157,6 +158,43 @@ class ContainerComponent(Component[Environment, ContainerNode]):
         )
 
         return ContainerNode(container, remove=self.remove)
+
+
+class MonitoredContainerError(Exception):
+    def __init__(self, container: Container):
+        super().__init__(self, f"Monitored container {container.name} has exited early.")
+
+
+def _watch_container(container: Container, stop: Event):
+    while True:
+        if stop.is_set():
+            break
+
+        container.reload()
+
+        if container.status != "running":
+            raise MonitoredContainerError(container)
+
+
+@attrs.define()
+class MonitoredContainerNode(ContainerNode):
+    thread: Thread
+    signal: Event
+
+    def stop(self):
+        self.signal.set()  # Set stop signal to terminate watcher thread
+        self.thread.join()  # Join thread to ensure termination before shutting down container
+        super().stop()
+
+
+@attrs.define()
+class MonitoredContainerComponent(ContainerComponent):
+    def start(self, environment: Environment) -> MonitoredContainerNode:
+        node = super().start(environment)
+        signal = Event()
+        thread = Thread(target=_watch_container, args=(node.container, signal), daemon=True)
+
+        return MonitoredContainerNode(node.container, thread, signal)
 
 
 class ReporterNode(CommunicationNode[object, object]):
