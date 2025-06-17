@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Generator, Iterable, Mapping
 from contextlib import ExitStack, contextmanager
 from threading import Event, Thread
-from typing import TYPE_CHECKING, Generic, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Generic, Literal, Protocol, TypeVar, cast
 
 import attrs
 import docker
@@ -139,27 +139,6 @@ class ContainerNode(Node):
             self.container.remove()
 
 
-@attrs.define()
-class ContainerComponent(Component[Environment, ContainerNode]):
-    image: str = attrs.field()
-    command: str = attrs.field()
-    ports: dict[int, Literal["tcp", "udp"]] = attrs.field(factory=dict)
-    remove: bool = attrs.field(default=True, kw_only=True)
-
-    def start(self, environment: Environment) -> ContainerNode:
-        container = environment.client.containers.run(
-            image=self.image,
-            command=self.command,
-            network=environment.network_name,
-            detach=True,
-            ports={
-                f"{port}/{proto}": None for port, proto in self.ports.items()
-            },
-        )
-
-        return ContainerNode(container, remove=self.remove)
-
-
 class MonitoredContainerError(Exception):
     def __init__(self, container: Container):
         super().__init__(self, f"Monitored container {container.name} has exited early.")
@@ -178,8 +157,10 @@ def _watch_container(container: Container, stop: Event):
 
 @attrs.define()
 class MonitoredContainerNode(ContainerNode):
-    thread: Thread
-    signal: Event
+    def __init__(self, container: Container, *, remove: bool = False):
+        super().__init__(container, remove=remove)
+        self.signal = Event()
+        self.thread = Thread(target=_watch_container, args=(container, self.signal), daemon=True)
 
     def stop(self):
         self.signal.set()  # Set stop signal to terminate watcher thread
@@ -188,13 +169,28 @@ class MonitoredContainerNode(ContainerNode):
 
 
 @attrs.define()
-class MonitoredContainerComponent(ContainerComponent):
-    def start(self, environment: Environment) -> MonitoredContainerNode:
-        node = super().start(environment)
-        signal = Event()
-        thread = Thread(target=_watch_container, args=(node.container, signal), daemon=True)
+class ContainerComponent(Component[Environment, ContainerNode]):
+    image: str = attrs.field()
+    command: str = attrs.field()
+    ports: dict[int, Literal["tcp", "udp"]] = attrs.field(factory=dict)
+    remove: bool = attrs.field(default=True, kw_only=True)
+    monitor: bool = attrs.field(default=False, kw_only=True)
 
-        return MonitoredContainerNode(node.container, thread, signal)
+    def start(self, environment: Environment) -> ContainerNode:
+        container = environment.client.containers.run(
+            image=self.image,
+            command=self.command,
+            network=environment.network_name,
+            detach=True,
+            ports={
+                f"{port}/{proto}": None for port, proto in self.ports.items()
+            },
+        )
+
+        if self.monitor:
+            return MonitoredContainerNode(container, remove=self.remove)
+
+        return ContainerNode(container, remove=self.remove)
 
 
 class ReporterNode(CommunicationNode[object, object]):
@@ -238,8 +234,14 @@ class ReporterNode(CommunicationNode[object, object]):
 
 
 class ReporterComponent(Component[Environment, ReporterNode]):
-    def __init__(self, image: str, command: str, port: int, *, remove: bool = True):
-        self.component = ContainerComponent(image, command, ports={port: "tcp"}, remove=remove)
+    def __init__(self, image: str, command: str, port: int, *, remove: bool = True, monitor: bool = False):
+        self.component = ContainerComponent(
+            image,
+            command,
+            ports={port: "tcp"},
+            remove=remove,
+            monitor=monitor,
+        )
         self.port = port
 
     def start(self, environment: Environment) -> ReporterNode:

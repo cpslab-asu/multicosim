@@ -191,9 +191,10 @@ class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[Ms
         message_type: type[MsgT],
         response_type: type[DataT],
         *,
-        remove: bool = False
+        remove: bool = False,
+        monitor: bool = False,
     ):
-        self.component = ReporterComponent(image, command, port, remove=remove)
+        self.component = ReporterComponent(image, command, port, remove=remove, monitor=monitor)
         self.message_type = message_type
         self.response_type = response_type
 

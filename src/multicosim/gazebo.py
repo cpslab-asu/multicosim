@@ -11,7 +11,7 @@ import attrs
 import docker
 from typing_extensions import override
 
-from .docker import Environment, MonitoredContainerComponent, MonitoredContainerNode, Node
+from .docker import Environment, ContainerComponent, ContainerNode, Node
 from .simulations import Component
 
 if TYPE_CHECKING:
@@ -138,7 +138,7 @@ class _Gazebo:
 @attrs.define()
 class GazeboContainerNode(Node):
     world: str
-    node: MonitoredContainerNode
+    node: ContainerNode
 
     @override
     def stop(self):
@@ -157,6 +157,7 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         sensor_topics: Iterable[tuple[str, str, str]] | None = None,
         *,
         remove: bool = False,
+        monitor: bool = False,
     ):
         if not backend:
             backend = ODE()
@@ -180,7 +181,12 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         command = f"{prefix} {backend.args}"
 
         self.world = world
-        self.component = MonitoredContainerComponent(image=image, command=command, remove=remove)
+        self.component = ContainerComponent(
+            image=image,
+            command=command,
+            remove=remove,
+            monitor=monitor,
+        )
 
     @override
     def start(self, environment: Environment) -> GazeboContainerNode:
