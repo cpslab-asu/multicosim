@@ -1,9 +1,11 @@
 FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS venv
 
-RUN mkdir /app
-COPY ./pyproject.toml ./uv.lock /app
+WORKDIR /app
+
+COPY ./pyproject.toml ./uv.lock ./
 RUN --mount=from=ghcr.io/astral-sh/uv:0.5.29,source=/uv,target=/bin/uv \
-    uv sync --project /app --python-preference only-system --frozen --no-dev
+    uv venv --system-site-packages --relocatable && \
+    uv sync --python-preference only-system --frozen --no-dev
 
 FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS gazebo
 
