@@ -110,12 +110,13 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         remove: bool = True,
     ):
         self.component = _GazeboContainerComponent(
-            image=f"ghcr.io/cpslab-asu/multicosim/px4/gazebo:{__version__}",
+            image="ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic",
             template=f"/app/resources/worlds/{world}.sdf",
             backend=backend,
             step_size=step_size,
             sensor_topics=sensor_topics,
             remove=remove,
+            monitor=True,  # Since PX4 depends on Gazebo, early exit should be an error
         )
 
     @property
@@ -194,6 +195,7 @@ class PX4Component(Component[Environment, PX4Node]):
             message_type=FirmwareConfiguration,
             response_type=States,
             remove=remove,
+            monitor=True,  # Early exit from PX4 firmware should be an error
         )
 
     def start(self, environment: Environment) -> PX4Node:
