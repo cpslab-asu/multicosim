@@ -7,7 +7,7 @@ from typing import Final, TypeVar
 import attrs
 from typing_extensions import override
 
-from . import __version__
+from .__about__ import __version__
 from .docker import ContainerSimulation, ContainerSimulator, Environment, NodeId, Simulator
 from .firmware import FirmwareContainerComponent, FirmwareContainerNode
 from .gazebo import Backend, GazeboContainerNode
