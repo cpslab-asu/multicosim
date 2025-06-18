@@ -3,13 +3,13 @@ from __future__ import annotations
 from collections.abc import Generator, Iterable, Mapping
 from contextlib import ExitStack, contextmanager
 from threading import Event, Thread
-from typing import TYPE_CHECKING, Generic, Literal, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Literal, TypedDict, TypeVar, cast
 
 import attrs
 import docker
 import nanoid
 import zmq
-from typing_extensions import override
+from typing_extensions import TypeAlias, override
 
 from .simulations import CommunicationNode, Component, Node, NodeId, Simulation, Simulator
 
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from docker.models.containers import Container
 
 NodeT = TypeVar("NodeT", bound=Node)
+PortProtocol: TypeAlias = Literal["tcp", "udp"]
 
 
 def _nodes(nodes: Mapping[NodeId, Node]) -> dict[NodeId, Node]:
@@ -117,6 +118,25 @@ def _transport_socket(port: int) -> Generator[zmq.Socket, None, None]:
             pass
 
 
+class PortMapping(TypedDict):
+    """A Docker port binding mapping."""
+
+    HostPort: str
+    HostIp: str
+
+
+def _get_host_port(container: Container, port: int, *, protocol: PortProtocol = "tcp") -> int:
+    mappings: list[PortMapping] = container.ports[f"{port}/{protocol}"]
+
+    for mapping in mappings:
+        try:
+            return int(mapping["HostPort"])
+        except KeyError:
+            pass
+
+    raise ValueError("Could not find host port binding")
+
+
 @attrs.define()
 class ContainerNode(Node):
     """A single component in the simulation tree running in a docker container.
@@ -129,11 +149,17 @@ class ContainerNode(Node):
     container: Container = attrs.field()
     remove: bool = attrs.field(kw_only=True, default=True)
 
-    def host_port(self, container_port: int) -> int:
-        ...
+    def host_port(self, container_port: int, protocol: PortProtocol = "tcp") -> int:
+        key = f"{container_port}/{protocol}"
+
+        while len(self.container.ports[key]) == 0:
+            self.container.reload()
+
+        return _get_host_port(self.container, container_port, protocol=protocol)
 
     def stop(self):
-        self.container.stop()
+        self.container.stop(timeout=10)
+        self.container.wait()
 
         if self.remove:
             self.container.remove()
@@ -144,7 +170,7 @@ class MonitoredContainerError(Exception):
         super().__init__(self, f"Monitored container {container.name} has exited early.")
 
 
-def _watch_container(container: Container, stop: Event):
+def _watch_container(container: Container, stop: threading.Event):
     while True:
         if stop.is_set():
             break
@@ -161,6 +187,7 @@ class MonitoredContainerNode(ContainerNode):
         super().__init__(container, remove=remove)
         self.signal = Event()
         self.thread = Thread(target=_watch_container, args=(container, self.signal), daemon=True)
+        self.thread.start()
 
     def stop(self):
         self.signal.set()  # Set stop signal to terminate watcher thread
@@ -187,6 +214,9 @@ class ContainerComponent(Component[Environment, ContainerNode]):
             },
         )
 
+        while container.status == "created":
+            container.reload()
+
         if self.monitor:
             return MonitoredContainerNode(container, remove=self.remove)
 
@@ -204,11 +234,7 @@ class ReporterNode(CommunicationNode[object, object]):
 
     def __init__(self, node: ContainerNode, port: int):
         self.node = node
-        self.container_port = port
-
-    @property
-    def host_port(self) -> int:
-        ...
+        self.host_port = port
 
     def send(self, msg: object) -> object:
         """Send a message to the node and return its response.
@@ -223,8 +249,10 @@ class ReporterNode(CommunicationNode[object, object]):
         with _transport_socket(self.host_port) as sock:
             frame = sock.send_pyobj(msg)
 
+            """
             if not frame:
                 raise RuntimeError(f"Could not send message {msg} to container")
+            """
 
             return sock.recv_pyobj()
 
@@ -249,77 +277,6 @@ class ReporterComponent(Component[Environment, ReporterNode]):
         port = node.host_port(self.port)
 
         return ReporterNode(node, port)
-
-
-DataT = TypeVar("DataT")
-MsgT = TypeVar("MsgT")
-
-
-@attrs.define()
-class Success(Generic[DataT]):
-    data: DataT
-
-
-@attrs.define()
-class Failure:
-    msg: str
-
-
-@attrs.define()
-class FirmwareNode(CommunicationNode[MsgT, DataT]):
-    node: ReporterNode
-    message_type: type[MsgT]
-    response_type: type[DataT]
-
-    @override
-    def send(self, msg: MsgT) -> DataT:
-        if not isinstance(msg, self.message_type):
-            raise TypeError(f"Unsupported message type {type(msg)}, expected {self.message_type}")
-
-        result = self.node.send(msg)
-
-        if isinstance(result, Success):
-            if isinstance(result.data, self.response_type):
-                return result.data
-            
-            raise TypeError(f"Unsupported data type {type(result)} from firmware, expected {self.response_type}")
-
-        if isinstance(result, Failure):
-            raise RuntimeError(result.msg)
-
-        raise TypeError(f"Unsupported return type from firmware container {type(result)}")
-
-    @override
-    def stop(self):
-        self.node.stop()
-
-
-@attrs.define()
-class FirmwareComponent(Component[Environment, FirmwareNode[MsgT, DataT]]):
-    """A component representing the firmware/controller of a system.
-
-    Args:
-        image: The docker image to use for execution
-        command: The command to execute in the container
-        port: The port to use for communication with the controller
-    """
-
-    def __init__(self,
-        image: str,
-        command: str,
-        port: int,
-        message_type: type[MsgT],
-        response_type: type[DataT],
-        *,
-        remove: bool = False
-    ):
-        self.component = ReporterComponent(image, command, port, remove=remove)
-        self.message_type = message_type
-        self.response_type = response_type
-
-    def start(self, environment: Environment) -> FirmwareNode[MsgT, DataT]:
-        node = self.component.start(environment)
-        return FirmwareNode(node, self.message_type, self.response_type)
 
 
 class AttachedNode(Node):

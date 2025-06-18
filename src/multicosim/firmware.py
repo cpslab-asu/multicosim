@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Generator
 from contextlib import ExitStack, contextmanager
-from typing import TYPE_CHECKING, Final, Generic, Protocol, TypedDict, TypeVar
+from typing import Final, Generic, Protocol, TypeVar
 
 import attrs
 import typing_extensions
@@ -11,9 +11,6 @@ import zmq
 
 from .docker import Environment, ReporterComponent, ReporterNode
 from .simulations import CommunicationNode, Component
-
-if TYPE_CHECKING:
-    from .containers import Container, PortProtocol
 
 DEFAULT_PORT: Final[int] = 5556
 
@@ -24,31 +21,6 @@ class SimulationError(Exception):
 
 class MessageError(SimulationError):
     pass
-
-
-def _has_port_mappings(container: Container, *ports: int, protocol: PortProtocol = "tcp") -> bool:
-    return all(
-        container.ports.get(f"{port}/{protocol}") is not None for port in ports
-    )
-
-
-class PortMapping(TypedDict):
-    """A Docker port binding mapping."""
-
-    HostPort: str
-    HostIp: str
-
-
-def _get_host_port(container: Container, port: int, *, protocol: PortProtocol = "tcp") -> int:
-    mappings: list[PortMapping] = container.ports[f"{port}/{protocol}"]
-
-    for mapping in mappings:
-        try:
-            return int(mapping["HostPort"])
-        except KeyError:
-            pass
-
-    raise ValueError("Could not find host port binding")
 
 
 DataT = TypeVar("DataT", covariant=True)
