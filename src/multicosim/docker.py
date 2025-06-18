@@ -4,6 +4,7 @@ from collections.abc import Generator, Iterable, Mapping
 from contextlib import ExitStack, contextmanager
 from threading import Event, Thread
 from typing import TYPE_CHECKING, Literal, TypedDict, TypeVar, cast
+from warnings import warn
 
 import attrs
 import docker
@@ -218,7 +219,8 @@ class ContainerComponent(Component[Environment, ContainerNode]):
             container.reload()
 
         if self.monitor:
-            return MonitoredContainerNode(container, remove=self.remove)
+            warn("Monitoring is not currently supported")
+            # return MonitoredContainerNode(container, remove=self.remove)
 
         return ContainerNode(container, remove=self.remove)
 
