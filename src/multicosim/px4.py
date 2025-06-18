@@ -102,7 +102,7 @@ class Gazebo:
 
 class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
     def __init__(self,
-        world: str = "iris_runway",
+        world: str = "default",
         backend: Backend | None = None,
         step_size: float = 0.001,
         sensor_topics: Iterable[tuple[str, str, str]] | None = None,
@@ -190,7 +190,7 @@ class PX4Component(Component[Environment, PX4Node]):
         self.gazebo = GazeboContainerComponent.from_configuration(gazebo, _resolve_vehicle_model(vehicle))
         self.firmware = FirmwareContainerComponent(
             image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
-            command=f"firmware --port {self.port} --world {gazebo.world} --model {vehicle}",
+            command=f"firmware --port {self.port}",
             port=self.port,
             message_type=FirmwareConfiguration,
             response_type=States,
