@@ -54,7 +54,7 @@ dependencies = [
 ]
 
 [tool.hatch.envs.examples.scripts]
-px4 = "python3 examples/px4.py {args}"
+quickstart = "python3 examples/quickstart.py"
 rover = "python3 examples/rover/src/test.py {args}"
 
 [tool.hatch.envs.types]
