@@ -164,6 +164,7 @@ ModelDirPath = click.Path(exists=True, file_okay=False, path_type=pathlib.Path)
 @click.option("-S", "--step-size", type=float, default=0.001)
 @click.option("-m", "--model-dir", "model_dirs", type=ModelDirPath, multiple=True, default=[pathlib.Path("resources/models")])
 @click.option("--sensor-topic", "sensor_topics", type=(str, str, str), multiple=True, default=[])
+@click.option("--verbose", is_flag=True)
 def gazebo(
     ctx: click.Context,
     world: pathlib.Path,
@@ -171,6 +172,8 @@ def gazebo(
     step_size: float,
     model_dirs: list[pathlib.Path],
     sensor_topics: list[tuple[str, str, str]],
+    *,
+    verbose: bool,
 ):
     topic_groups = group_sensor_topics(sensor_topics)
 
