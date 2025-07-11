@@ -50,6 +50,15 @@ class Environment:
     network_name: str
 
 
+def _generate_network_name() -> str:
+    network_name = nanoid.generate()
+
+    while network_name.startswith("_"):
+        network_name = nanoid.generate()
+
+    return network_name
+
+
 class ContainerSimulator(Simulator[Environment, ContainerSimulation]):
     """A tree of components representing a simulator for a given system using Docker containers.
 
@@ -64,7 +73,7 @@ class ContainerSimulator(Simulator[Environment, ContainerSimulation]):
 
     def __init__(self, *components: Component[Environment, Node]):
         client = docker.from_env()
-        network_name = nanoid.generate()
+        network_name = _generate_network_name()
 
         self.network = client.networks.create(network_name)
         self.env = Environment(client, network_name)
