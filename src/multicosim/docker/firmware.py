@@ -1,31 +1,22 @@
-from __future__ import annotations
-
 import logging
 from collections.abc import Callable, Generator
 from contextlib import ExitStack, contextmanager
-from typing import Final, Generic, Protocol, TypeVar
+from typing import Any, Final, Generic, Protocol, TypeVar
 
 import attrs
-import typing_extensions
-from typing_extensions import Any
 import zmq
+from typing_extensions import override
 
-from .docker import Environment, ReporterComponent, ReporterNode
-from .simulations import CommunicationNode, Component
+from ..simulations import CommunicationNode, Component, NodeId, Simulation, Simulator
+from .component import ReporterComponent, ReporterNode
+from .gazebo import GazeboConfig, GazeboContainerComponent, GazeboContainerNode
+from .simulation import ContainerSimulation, ContainerSimulator, Environment
 
 DEFAULT_PORT: Final[int] = 5556
 
-
-class SimulationError(Exception):
-    pass
-
-
-class MessageError(SimulationError):
-    pass
-
-
-DataT = TypeVar("DataT", covariant=True)
 MsgT = TypeVar("MsgT", contravariant=True)
+ResultT = TypeVar("ResultT", covariant=True)
+DataT = TypeVar("DataT", covariant=True)
 
 
 @attrs.frozen()
@@ -36,6 +27,14 @@ class Success(Generic[DataT]):
 @attrs.frozen()
 class Failure:
     msg: str
+
+
+class SimulationError(Exception):
+    pass
+
+
+class MessageError(SimulationError):
+    pass
 
 
 @contextmanager
@@ -134,14 +133,14 @@ class FirmwareContainerNode(CommunicationNode[MsgT, DataT]):
     message_type: type[MsgT]
     response_type: type[DataT]
 
-    @typing_extensions.override
+    @override
     def send(self, msg: MsgT) -> DataT:
         if not isinstance(msg, self.message_type):
             raise TypeError(f"Unsupported message type {type(msg)}, expected {self.message_type}")
 
         return _extract_response_data(self.node.send(msg), self.response_type)
 
-    @typing_extensions.override
+    @override
     def stop(self):
         self.node.stop()
 
@@ -171,7 +170,7 @@ class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[Ms
         self.message_type = message_type
         self.response_type = response_type
 
-    @typing_extensions.override
+    @override
     def start(self, environment: Environment) -> FirmwareContainerNode[MsgT, DataT]:
         return FirmwareContainerNode(
             self.component.start(environment),
@@ -179,8 +178,9 @@ class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[Ms
             self.response_type,
         )
 
+
 @attrs.define()
-class FirmwareConfig:
+class FirmwareConfig(Generic[MsgT, DataT]):
     image: str = attrs.field()
     command: str = attrs.field()
     port: int = attrs.field()
@@ -189,7 +189,7 @@ class FirmwareConfig:
     remove: bool = attrs.field(default=True, kw_only=True)
     monitor: bool = attrs.field(default=True, kw_only=True)
 
-    def params(self) -> dict[str:Any]:
+    def params(self) -> dict[str, Any]:
         return {"image" : self.image,
                 "command" : self.command,
                 "port" : self.port,
@@ -197,3 +197,76 @@ class FirmwareConfig:
                 "response_type" : self.response_type,
                 "remove" : self.remove,
                 "monitor" : self.monitor}
+
+
+@attrs.define()
+class JointGazeboFirmwareNode(CommunicationNode[MsgT, ResultT]):
+    gazebo: GazeboContainerNode
+    firmware: FirmwareContainerNode[MsgT, ResultT]
+
+    def send(self, msg: MsgT):
+        return self.firmware.send(msg)
+
+    def stop(self):
+        self.gazebo.stop()
+        self.firmware.stop()
+
+
+class JointGazeboFirmwareComponent(Component[Environment, JointGazeboFirmwareNode]):
+    def __init__(self, gazebo: GazeboConfig, fw: FirmwareConfig):
+        self.port = fw.port
+        self.gazebo = GazeboContainerComponent(**(gazebo.params()))
+        self.firmware = FirmwareContainerComponent(**(fw.params()))
+
+    def start(self, environment: Environment) -> JointGazeboFirmwareNode:
+        return JointGazeboFirmwareNode(
+            self.gazebo.start(environment),
+            self.firmware.start(environment),
+        )
+
+@attrs.define()
+class GazeboFirmwareSimulation(Simulation):
+    simulation: ContainerSimulation
+    node_id: NodeId[JointGazeboFirmwareNode]
+
+    @property
+    def firmware(self) -> FirmwareContainerNode:
+        """The simulation node of the executing firmware."""
+
+        return self.simulation.get(self.node_id)
+
+    @property
+    def gazebo(self) -> GazeboContainerNode:
+        """The simulation node of the executing firmware."""
+
+        return self.simulation.get(self.node_id).gazebo
+
+    def stop(self):
+        return self.simulation.stop()
+    
+class GazeboFirmwareSimulator(Simulator[Environment, GazeboFirmwareSimulation]):
+    """A simulator tree representing a simulation using a firmware that utilizes gazebo and acts as the system controller.
+
+    Args:
+        gazebo: The gazebo component to use for simulation
+    """
+    def __init__(self, fwcomponent: JointGazeboFirmwareComponent):
+        self.simulator = ContainerSimulator()
+        self.fwcomponent = fwcomponent
+        self.node_id = self.simulator.add(self.fwcomponent)
+
+    @property
+    def component(self) -> JointGazeboFirmwareComponent:
+        return self.fwcomponent
+
+    @property
+    def gazebo(self) -> GazeboContainerComponent:
+        return self.component.gazebo
+
+    @override
+    def add(self, component: Component[Environment, NodeT]) -> NodeId[NodeT]:
+        return self.simulator.add(component)
+    
+    @override
+    def start(self) -> GazeboFirmwareSimulation:
+        return GazeboFirmwareSimulation(self.simulator.start(), self.node_id)
