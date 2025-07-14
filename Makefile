@@ -27,6 +27,9 @@ gazebo: base
 px4: gazebo
 	make -C px4 images
 
+ardupilot: gazebo
+	make -C ardupilot images
+
 images: base gazebo px4
 
 .PHONY: all wheel base gazebo px4 images
