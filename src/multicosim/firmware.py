@@ -7,6 +7,7 @@ from typing import Final, Generic, Protocol, TypeVar
 
 import attrs
 import typing_extensions
+from typing_extensions import Any
 import zmq
 
 from .docker import Environment, ReporterComponent, ReporterNode
@@ -177,3 +178,22 @@ class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[Ms
             self.message_type,
             self.response_type,
         )
+
+@attrs.define()
+class FirmwareConfig:
+    image: str = attrs.field()
+    command: str = attrs.field()
+    port: int = attrs.field()
+    message_type: type[MsgT] = attrs.field()
+    response_type: type[DataT] = attrs.field()
+    remove: bool = attrs.field(default=True, kw_only=True)
+    monitor: bool = attrs.field(default=True, kw_only=True)
+
+    def params(self) -> dict[str:Any]:
+        return {"image" : self.image,
+                "command" : self.command,
+                "port" : self.port,
+                "message_type" : self.message_type,
+                "response_type" : self.response_type,
+                "remove" : self.remove,
+                "monitor" : self.monitor}

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import attrs
 import docker
-from typing_extensions import override
+from typing_extensions import override, Any
 
 from .docker import Environment, ContainerComponent, ContainerNode, Node
 from .simulations import Component
@@ -207,6 +207,33 @@ class Simulation:
 class GazeboError(Exception):
     pass
 
+@attrs.define()
+class GazeboConfig:
+    image: str | None= attrs.field(default=None)
+    template: str | None = attrs.field(default=None)
+    model_dir: str | None = attrs.field(default=None)
+    world: str = attrs.field(default="generated")
+    backend: Backend | None = attrs.field(default=None)
+    step_size: float = attrs.field(default=0.001)
+    sensor_topics: list[tuple[str, str, str]] = attrs.field(factory=list)
+    remove: bool = attrs.field(default=True, kw_only=True)
+    monitor: bool = attrs.field(default=True, kw_only=True)
+
+    def params(self) -> dict[str:Any]:
+        params = {}
+        if self.image is not None:
+            params["image"] = self.image
+        if self.template is not None:
+            params["template"] = self.template
+        if self.model_dir is not None:
+            params["template"] = self.model_dir
+        params["world"] = self.world
+        params["backend"] = self.backend
+        params["step_size"] = self.step_size
+        params["sensor_topics"] = self.sensor_topics
+        params["remove"] = self.remove
+        params["monitor"] = self.monitor
+        return params
 
 @contextmanager
 def start(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator
 from enum import IntEnum
 from typing import Final, TypeVar
 
@@ -8,12 +8,10 @@ import attrs
 from typing_extensions import override
 
 from .__about__ import __version__
-from .docker import ContainerSimulation, ContainerSimulator, Environment, NodeId, Simulator
-from .firmware import FirmwareContainerComponent, FirmwareContainerNode
-from .gazebo import Backend, GazeboContainerNode
-from .gazebo import GazeboContainerComponent as _GazeboContainerComponent
-from .simulations import CommunicationNode, Component, Node, Simulation
-
+from .docker import Environment
+from .firmware import FirmwareContainerNode, FirmwareConfig
+from .gazebo import GazeboContainerNode, GazeboConfig
+from .gz_firmware import GZFirmwareComponent, GZFirmwareNode, GZFirmware
 
 class Vehicle(IntEnum):
     X500 = 0
@@ -90,56 +88,6 @@ DEFAULT_PORT: Final[int] = 5556
 class Configuration:
     mission: list[Waypoint] = attrs.field(converter=_mission)
 
-
-@attrs.define()
-class Gazebo:
-    world: str = attrs.field(default="iris_runway")
-    backend: Backend | None = attrs.field(default=None)
-    step_size: float = attrs.field(default=0.001)
-    sensor_topics: Mapping[str, str] = attrs.field(factory=dict)
-    remove: bool = attrs.field(default=True, kw_only=True)
-
-
-class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
-    def __init__(self,
-        world: str = "default",
-        backend: Backend | None = None,
-        step_size: float = 0.001,
-        sensor_topics: Iterable[tuple[str, str, str]] | None = None,
-        *,
-        remove: bool = True,
-    ):
-        self.component = _GazeboContainerComponent(
-            image="ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic",
-            template=f"/app/resources/worlds/{world}.sdf",
-            backend=backend,
-            step_size=step_size,
-            sensor_topics=sensor_topics,
-            remove=remove,
-            monitor=True,  # Since PX4 depends on Gazebo, early exit should be an error
-        )
-
-    @property
-    def world(self) -> str:
-        return self.component.world
-
-    @override
-    def start(self, environment: Environment) -> GazeboContainerNode:
-        return self.component.start(environment)
-
-    @classmethod
-    def from_configuration(cls, config: Gazebo, model: str) -> GazeboContainerComponent:
-        return cls(
-            world=config.world,
-            backend=config.backend,
-            step_size=config.step_size,
-            sensor_topics=[
-                (model, sensor, topic) for sensor, topic in config.sensor_topics.items()
-            ],
-            remove=config.remove,
-        )
-
-
 def _resolve_vehicle_model(vehicle: Vehicle) -> str:
     """Determine the name of the actual model to edit.
 
@@ -159,44 +107,44 @@ def _resolve_vehicle_model(vehicle: Vehicle) -> str:
 
     raise ValueError(f"Unknown PX4 vehicle: {vehicle}")
 
+def _create_sensor_topics(gazebo: GazeboConfig, vehicle: Vehicle):
+    model = _resolve_vehicle_model(vehicle)
+    return [(model,data[1],data[2]) for data in gazebo.sensor_topics]
 
-class FirmwareConfiguration:
+class PX4Configuration:
     def __init__(self, configuration: Configuration, vehicle: Vehicle, world: str):
         self.mission = configuration.mission
         self.vehicle = vehicle
         self.world = world
 
-
-@attrs.define()
-class PX4Node(CommunicationNode[Configuration, States]):
-    gazebo: GazeboContainerNode
-    _firmware: FirmwareContainerNode[FirmwareConfiguration, States]
-    _vehicle: Vehicle
-    _world: str
+class PX4Node(GZFirmwareNode[Configuration, States]):
+    def __init__(self, gazebo_node: GazeboContainerNode, fw_node: FirmwareContainerNode[Configuration, States], vehicle: Vehicle, world: str):
+        self._vehicle: Vehicle = vehicle
+        self._world: str = world
+        super().__init__(gazebo_node,fw_node)
 
     @override
     def send(self, msg: Configuration) -> States:
-        return self._firmware.send(FirmwareConfiguration(msg, self._vehicle, self._world))
+        return self._firmware.send(PX4Configuration(msg, self._vehicle, self._world))
 
-    def stop(self):
-        self.gazebo.stop()
-        self._firmware.stop()
-
-
-class PX4Component(Component[Environment, PX4Node]):
-    def __init__(self, gazebo: Gazebo, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False):
-        self.port = 5556
+class PX4Component(GZFirmwareComponent):
+    def __init__(self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False):
         self.vehicle = vehicle
-        self.gazebo = GazeboContainerComponent.from_configuration(gazebo, _resolve_vehicle_model(vehicle))
-        self.firmware = FirmwareContainerComponent(
+        gazebo.image = "ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic"
+        gazebo.template = f"/app/resources/worlds/{gazebo.world}.sdf"
+        gazebo.sensor_topics = _create_sensor_topics(gazebo,vehicle)
+        gazebo.remove = remove
+
+        fw = FirmwareConfig( 
             image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
-            command=f"firmware --port {self.port}",
-            port=self.port,
-            message_type=FirmwareConfiguration,
+            command=f"firmware --port {DEFAULT_PORT}",
+            port=DEFAULT_PORT,
+            message_type=PX4Configuration,
             response_type=States,
             remove=remove,
             monitor=True,  # Early exit from PX4 firmware should be an error
         )
+        super().__init__(gazebo, fw)
 
     def start(self, environment: Environment) -> PX4Node:
         return PX4Node(
@@ -206,63 +154,7 @@ class PX4Component(Component[Environment, PX4Node]):
             self.gazebo.world,
         )
 
-
-@attrs.define()
-class PX4Simulation(Simulation):
-    """A PX4 simulation execution.
-
-    Args:
-        nodes: The executing simulation nodes
-        fw_id: The id of the node executing the firmware
-        gz_id: The id of the node executing the gazebo simulator
-    """
-
-    simulation: ContainerSimulation
-    node_id: NodeId[PX4Node]
-
-    @property
-    def firmware(self) -> PX4Node:
-        """The simulation node of the executing firmware."""
-
-        return self.simulation.get(self.node_id)
-
-    @property
-    def gazebo(self) -> GazeboContainerNode:
-        """The simulation node of the executing firmware."""
-
-        return self.simulation.get(self.node_id).gazebo
-
-    def stop(self):
-        return self.simulation.stop()
-
-
-NodeT = TypeVar("NodeT", bound=Node)
-
-
-class PX4(Simulator[Environment, PX4Simulation]):
-    """A simulator tree representing a simulation using the PX4 firmware as the system controller.
-
-    Args:
-        gazebo: The gazebo component to use for simulation
-    """
-
-    def __init__(self, gazebo: Gazebo, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False):
-        self.simulator = ContainerSimulator()
-        self.component = PX4Component(gazebo, vehicle, remove=remove)
-        self.node_id = self.simulator.add(self.component)
-
-    @property
-    def px4(self) -> PX4Component:
-        return self.component
-
-    @property
-    def gazebo(self) -> GazeboContainerComponent:
-        return self.component.gazebo
-
-    @override
-    def add(self, component: Component[Environment, NodeT]) -> NodeId[NodeT]:
-        return self.simulator.add(component)
-
-    @override
-    def start(self) -> PX4Simulation:
-        return PX4Simulation(self.simulator.start(), self.node_id)
+class PX4(GZFirmware):
+    def __init__(self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False):
+        super().__init__(PX4Component(gazebo,vehicle,remove=remove))
+    

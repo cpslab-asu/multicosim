@@ -34,7 +34,7 @@ def create_mission_item(waypoint: px4.Waypoint) -> mission.MissionItem:
     )
 
 
-def create_mission(config: px4.FirmwareConfiguration) -> mission.MissionPlan:
+def create_mission(config: px4.PX4Configuration) -> mission.MissionPlan:
     return mission.MissionPlan([create_mission_item(wp) for wp in config.mission])
 
 
@@ -111,8 +111,8 @@ async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handle
             break
 
 
-@fw.firmware(msgtype=px4.FirmwareConfiguration)
-def server(msg: px4.FirmwareConfiguration) -> px4.States:
+@fw.firmware(msgtype=px4.PX4Configuration)
+def server(msg: px4.PX4Configuration) -> px4.States:
     handler = Handler()
     mission = create_mission(msg)
     gz_model = gz_model_name(msg.vehicle)

@@ -19,7 +19,7 @@ def quickstart(container: str | None, *, verbose: bool, remove: bool):
         logging.getLogger("examples.px4").setLevel(logging.DEBUG)
 
     # Create the Gazebo component
-    gazebo = px4.Gazebo()
+    gazebo = px4.GazeboConfig()
 
     # Create the PX4 simulator
     simulator = px4.PX4(gazebo)
