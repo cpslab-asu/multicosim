@@ -5,14 +5,14 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import attrs
 import docker
-from typing_extensions import override, Any
+from typing_extensions import override
 
-from .docker import Environment, ContainerComponent, ContainerNode, Node
-from .simulations import Component
+from .component import ContainerComponent, ContainerNode
+from .simulation import Environment
 
 if TYPE_CHECKING:
     from docker import DockerClient as Client
@@ -207,19 +207,24 @@ class Simulation:
 class GazeboError(Exception):
     pass
 
+
 @attrs.define()
-class GazeboConfig:
-    image: str | None= attrs.field(default=None)
-    template: str | None = attrs.field(default=None)
-    model_dir: str | None = attrs.field(default=None)
+class BaseGazeboConfig:
     world: str = attrs.field(default="generated")
     backend: Backend | None = attrs.field(default=None)
     step_size: float = attrs.field(default=0.001)
-    sensor_topics: list[tuple[str, str, str]] = attrs.field(factory=list)
     remove: bool = attrs.field(default=True, kw_only=True)
     monitor: bool = attrs.field(default=True, kw_only=True)
 
-    def params(self) -> dict[str:Any]:
+
+@attrs.define()
+class GazeboConfig(BaseGazeboConfig):
+    image: str | None= attrs.field(default=None)
+    template: str | None = attrs.field(default=None)
+    model_dir: str | None = attrs.field(default=None)
+    sensor_topics: list[tuple[str, str, str]] = attrs.field(factory=list)
+
+    def params(self) -> dict[str, Any]:
         params = {}
         if self.image is not None:
             params["image"] = self.image
@@ -234,6 +239,7 @@ class GazeboConfig:
         params["remove"] = self.remove
         params["monitor"] = self.monitor
         return params
+
 
 @contextmanager
 def start(
