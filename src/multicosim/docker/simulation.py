@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from re import match
 from typing import TypeVar, cast
 
 import attrs
@@ -42,7 +43,7 @@ class Environment:
 def _generate_network_name() -> str:
     network_name = nanoid.generate()
 
-    while network_name.startswith("_"):
+    while not match("^[a-zA-Z0-9].*", network_name):
         network_name = nanoid.generate()
 
     return network_name
