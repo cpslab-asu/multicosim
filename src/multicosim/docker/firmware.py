@@ -10,7 +10,7 @@ from typing_extensions import override
 from ..simulations import CommunicationNode, Component, NodeId, Simulation, Simulator
 from .component import ReporterComponent, ReporterNode
 from .gazebo import GazeboConfig, GazeboContainerComponent, GazeboContainerNode
-from .simulation import ContainerSimulation, ContainerSimulator, Environment
+from .simulation import ContainerSimulation, ContainerSimulator, Environment, NodeT
 
 DEFAULT_PORT: Final[int] = 5556
 

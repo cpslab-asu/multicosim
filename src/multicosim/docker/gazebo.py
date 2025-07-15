@@ -11,6 +11,7 @@ import attrs
 import docker
 from typing_extensions import override
 
+from ..simulations import Node, Component
 from .component import ContainerComponent, ContainerNode
 from .simulation import Environment
 

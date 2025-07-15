@@ -5,6 +5,7 @@ from enum import IntEnum
 from typing import Final, TypeVar
 
 import attrs
+from typing_extensions import override
 
 from .__about__ import __version__
 from .docker.firmware import (
@@ -99,7 +100,7 @@ class PX4Configuration:
         self.world = world
 
 
-class PX4Node(JointGazeboFirmwareNode[PX4Configuration, States]):
+class PX4Node(JointGazeboFirmwareNode[Configuration, States]):
     def __init__(
         self,
         gazebo_node: GazeboContainerNode,
@@ -111,6 +112,9 @@ class PX4Node(JointGazeboFirmwareNode[PX4Configuration, States]):
         self._world: str = world
         super().__init__(gazebo_node, fw_node)
 
+    @override
+    def send(self, msg: Configuration) -> States:
+        return self.firmware.send(PX4Configuration(msg, self._vehicle, self._world))
 
 @attrs.define()
 class GazeboConfig(BaseGazeboConfig):
