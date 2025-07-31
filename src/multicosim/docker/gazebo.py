@@ -157,6 +157,7 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         step_size: float = 0.001,
         sensor_topics: Iterable[tuple[str, str, str]] | None = None,
         *,
+        headless: bool = False,
         remove: bool = False,
         monitor: bool = False,
     ):
@@ -174,6 +175,9 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
             f"--step-size {step_size}",
             f"--model-dir {model_dir}",
         ]
+
+        if headless:
+            parts.append("--headless")
 
         for model_name, sensor_name, topic_name in sensor_topics:
             parts.append(f"--sensor-topic {model_name} {sensor_name} {topic_name}")
