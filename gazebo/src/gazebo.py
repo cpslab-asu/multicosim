@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import os
 import pathlib
 import signal
 import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, Final
 from types import FrameType
 
 import click
+import sdformat14 as sdf
 import lxml.etree as xml
+    
+GZ_SIM_RESOURCE_PATH: Final[str] = "GZ_SIM_RESOURCE_PATH"
 
 
 @dataclass(frozen=True)
@@ -16,6 +21,7 @@ class Config:
     base_path: pathlib.Path
     world_path: pathlib.Path
     step_size: float
+    headless: bool
 
     def create_world(self, *, engine: xml.Element) -> pathlib.Path:
         with self.base_path.open("rb") as file:
@@ -50,6 +56,76 @@ class Config:
         return self.world_path.resolve()
 
 
+def model_sensors(model: sdf.Model) -> Iterable[sdf.Sensor]:
+    n_links = model.link_count()
+
+    for i in range(0, n_links):
+        link = model.link_by_index(i)
+        n_sensors = link.sensor_count()
+
+        for j in range(0, n_sensors):
+            yield link.sensor_by_index(j)
+
+    n_joints = model.joint_count()
+
+    for i in range(0, n_joints):
+        joint = model.joint_by_index(i)
+        n_sensors = joint.sensor_count()
+
+        for j in range(0, n_sensors):
+            yield joint.sensor_by_index(j)
+
+
+def update_model_sensor_topics(model: sdf.Model, topics: Iterable[tuple[str, str]]):
+    topics_map = dict(topics)
+
+    for sensor in model_sensors(model):
+        name = sensor.name()
+
+        if name in topics_map:
+            sensor.set_topic(topics_map[name])  # Set topic if sensor is specific in mapping, ignore otherwise
+
+
+class ModelNotFoundError(Exception):
+    def __init__(self, model: str, dirs: list[pathlib.Path]):
+        joined = ";".join(str(path) for path in dirs)
+
+        super().__init__(
+            f"Could not locate {model} in search path: {joined}",
+        )
+
+
+def set_sensor_topics(model_dirs: list[pathlib.Path], model: str, topics: Iterable[tuple[str, str]]):
+    for model_dir in model_dirs:
+        for m in model_dir.iterdir():
+            if m.name == model:
+                model_file = m.resolve() / "model.sdf"
+                root = sdf.Root()
+                root.load(f"{model_file}")
+
+                update_model_sensor_topics(root.model(), topics)
+                
+                with model_file.open("wt") as f:
+                    f.write(root.to_string())
+
+                return
+
+    raise ModelNotFoundError(model, model_dirs)
+
+
+def group_sensor_topics(mappings: list[tuple[str, str, str]]) -> dict[str, list[tuple[str, str]]]:
+    groups: dict[str, list[tuple[str, str]]] = {}
+
+    for model_file, sensor_name, topic_name in mappings:
+        mapping = (sensor_name, topic_name)
+        try:
+            groups[model_file].append(mapping)
+        except KeyError:
+            groups[model_file] = [mapping]
+
+    return groups
+
+
 def run_gazebo(ctx: click.Context, *, engine: xml.Element):
     config = ctx.find_object(Config)
 
@@ -57,7 +133,10 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element):
         raise RuntimeError()
 
     world = config.create_world(engine=engine)
-    cmd = f"gz sim -s -r -v4 {world}"
+    cmd = f"gz sim -s -r -v4"
+    if config.headless:
+        cmd += " --headless-rendering"
+    cmd += f" {world}" 
 
     with subprocess.Popen(args=cmd, shell=True, executable="/usr/bin/bash") as proc:
         def shutdown():
@@ -79,6 +158,7 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element):
 
 WorldPath = click.Path(writable=True, path_type=pathlib.Path)
 BaseWorld = click.Path(exists=True, dir_okay=False, path_type=pathlib.Path)
+ModelDirPath = click.Path(exists=True, file_okay=False, path_type=pathlib.Path)
 
 
 @click.group()
@@ -86,8 +166,27 @@ BaseWorld = click.Path(exists=True, dir_okay=False, path_type=pathlib.Path)
 @click.option("-w", "--world", type=WorldPath, default=pathlib.Path("generated.sdf"))
 @click.option("-b", "--base", type=BaseWorld, default=pathlib.Path("resources/worlds/default.sdf"))
 @click.option("-S", "--step-size", type=float, default=0.001)
-def gazebo(ctx: click.Context, world: pathlib.Path, base: pathlib.Path, step_size: float):
-    ctx.obj = Config(base_path=base, world_path=world, step_size=step_size)
+@click.option("-m", "--model-dir", "model_dirs", type=ModelDirPath, multiple=True, default=[pathlib.Path("resources/models")])
+@click.option("--sensor-topic", "sensor_topics", type=(str, str, str), multiple=True, default=[])
+@click.option("--headless", is_flag=True)
+@click.option("--verbose", is_flag=True)
+def gazebo(
+    ctx: click.Context,
+    world: pathlib.Path,
+    base: pathlib.Path,
+    step_size: float,
+    model_dirs: list[pathlib.Path],
+    sensor_topics: list[tuple[str, str, str]],
+    *,
+    headless: bool,
+    verbose: bool,
+):
+    topic_groups = group_sensor_topics(sensor_topics)
+
+    for model, topics in topic_groups.items():
+        set_sensor_topics(model_dirs, model, topics)
+
+    ctx.obj = Config(base_path=base, world_path=world, step_size=step_size, headless=headless)
 
 
 ODESolver: TypeAlias = Literal["quick", "world"]

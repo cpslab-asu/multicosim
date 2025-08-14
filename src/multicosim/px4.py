@@ -1,15 +1,33 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from enum import IntEnum
-from pathlib import Path
-from typing import Final
+from typing import Final, TypeVar
 
 import attrs
+from typing_extensions import override
 
-from . import gazebo as gz
-from . import firmware as fw
-from . import __version__
+from .__about__ import __version__
+from .docker.firmware import (
+    FirmwareConfig,
+    FirmwareContainerNode,
+    GazeboFirmwareSimulator,
+    JointGazeboFirmwareComponent,
+    JointGazeboFirmwareNode,
+)
+from .docker.gazebo import BaseGazeboConfig, GazeboContainerNode
+from .docker.gazebo import GazeboConfig as _GazeboConfig
+from .docker.simulation import Environment
+
+
+class Vehicle(IntEnum):
+    X500 = 0
+
+    def __str__(self) -> str:
+        if self is Vehicle.X500:
+            return "x500"
+
+        raise ValueError(f"Unknown vehicle type {self}")
 
 
 @attrs.frozen()
@@ -47,11 +65,13 @@ class State:
 PORT: Final[int] = 5556
 
 
+def _mission(waypoints: Iterable[Waypoint]) -> list[Waypoint]:
+    return list(waypoints)
+
+
 @attrs.frozen()
-class StartMsg:
-    mission: list[Waypoint]
-    model: Model
-    world: str
+class Data:
+    mission: list[Waypoint] = attrs.field(converter=_mission)
 
 
 @attrs.frozen()
@@ -62,72 +82,107 @@ class States(Iterable[State]):
         return iter(self.values)
 
 
-@fw.manage(
-    firmware_image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
-    gazebo_image="ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic",
-    command=f"/usr/local/bin/firmware --port {PORT} --verbose",
-    port=PORT,
-    template=Path("resources/worlds/default.sdf"),
-    rtype=States,
-)
-def firmware(world: str, mission: list[Waypoint], model: Model) -> StartMsg:
-    return StartMsg(mission, model, world)
+T = TypeVar("T", covariant=True)
 
 
-def simulate(
-    mission: list[Waypoint],
-    model: Model,
-    gazebo: gz.Gazebo,
-    *,
-    remove: bool = False,
-) -> dict[float, Pose]:
-    """Execute a simulation using the PX4 using the given configuration.
-
-    Args:
-        px4cfg: The configuration for the PX4 system
-        gzcfg: The configuration for the simulator
-        container: The existing PX4 container to use instead of creating a new one
-        client: The docker client to use, if any
-        context: The ZeroMQ context to use, if any
-
-    Returns:
-        A list of poses representing the position of the vehicle in meters over the
-        course of the mission provided in the PX4 configuration.
-    """
-
-    states = firmware.run(gazebo, mission=mission, model=model, remove=remove)
-    return {state.time: state.pose for state in states}
+DEFAULT_PORT: Final[int] = 5556
 
 
 @attrs.frozen()
-class PX4:
-    """Configuration parameters for a simulated PX4-controlled vehicle.
+class Configuration:
+    mission: list[Waypoint] = attrs.field(converter=_mission)
+
+
+class PX4Configuration:
+    def __init__(self, configuration: Configuration, vehicle: Vehicle, world: str):
+        self.mission = configuration.mission
+        self.vehicle = vehicle
+        self.world = world
+
+
+class PX4Node(JointGazeboFirmwareNode[Configuration, States]):
+    def __init__(
+        self,
+        gazebo_node: GazeboContainerNode,
+        fw_node: FirmwareContainerNode[PX4Configuration, States],
+        vehicle: Vehicle,
+        world: str,
+    ):
+        self._vehicle: Vehicle = vehicle
+        self._world: str = world
+        super().__init__(gazebo_node, fw_node)
+
+    @override
+    def send(self, msg: Configuration) -> States:
+        return self.firmware.send(PX4Configuration(msg, self._vehicle, self._world))
+
+@attrs.define()
+class GazeboConfig(BaseGazeboConfig):
+    sensor_topics: Mapping[str, str] = attrs.field(factory=dict)
+
+
+def _resolve_vehicle_model(vehicle: Vehicle) -> str:
+    """Determine the name of the actual model to edit.
+
+    The names for the PX4 models loaded by the firmware are often built off of a common base model
+    that contains all of the actual sensor definitions. Therefore, this function ensures that the
+    proper model file is modified.
 
     Args:
-        model: The vehicle model to use for the simulation
-        waypoints: The mission for the vehicle to execute during the simulation
-        world: The name of the Gazebo world
+        model: The PX4 model being simulated
+
+    Returns:
+        The name of the base model containing the sensor definitions.
     """
 
-    class Model(IntEnum):
-        """PX4 Vehicle model to use for simulation.
+    if vehicle is Vehicle.X500:
+        return "x500_base"
 
-        The X500 is a light-weight quadrotor aircraft model.
-        """
+    raise ValueError(f"Unknown PX4 vehicle: {vehicle}")
 
-        X500 = 0
 
-    model: Model = attrs.field(default=Model.X500)
+def _create_sensor_topics(gazebo: GazeboConfig, vehicle: Vehicle):
+    model = _resolve_vehicle_model(vehicle)
+    return [(model, data[1], data[2]) for data in gazebo.sensor_topics]
 
-    def simulate(
-        self,
-        gazebo: gz.Gazebo,
-        mission: list[Waypoint] | None = None,
-        *,
-        remove: bool = False
-    ) -> dict[float, Pose]:
-        return simulate(mission or DEFAULT_MISSION, self.model, gazebo, remove=remove)
 
-Model = PX4.Model
+class PX4Component(JointGazeboFirmwareComponent):
+    def __init__(
+        self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False
+    ):
+        gz = _GazeboConfig(
+            image="ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic",
+            template=f"/app/resources/worlds/{gazebo.world}.sdf",
+            sensor_topics=_create_sensor_topics(gazebo, vehicle),
+            backend=gazebo.backend,
+            step_size=gazebo.step_size,
+            remove=remove,
+        )
 
-__all__ = ["DEFAULT_MISSION", "Model", "Pose", "PX4", "State", "Waypoint", "simulate"]
+        fw = FirmwareConfig(
+            image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
+            command=f"firmware --port {DEFAULT_PORT}",
+            port=DEFAULT_PORT,
+            message_type=PX4Configuration,
+            response_type=States,
+            remove=remove,
+            monitor=True,  # Early exit from PX4 firmware should be an error
+        )
+
+        super().__init__(gz, fw)
+        self.vehicle = vehicle
+
+    def start(self, environment: Environment) -> PX4Node:
+        return PX4Node(
+            self.gazebo.start(environment),
+            self.firmware.start(environment),
+            self.vehicle,
+            self.gazebo.world,
+        )
+
+
+class PX4(GazeboFirmwareSimulator):
+    def __init__(
+        self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False
+    ):
+        super().__init__(PX4Component(gazebo, vehicle, remove=remove))

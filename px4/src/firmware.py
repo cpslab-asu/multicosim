@@ -7,13 +7,12 @@ import subprocess
 import threading
 
 import click
-import multicosim as mcs
-import multicosim.px4 as px4
 import gz.transport13
 import gz.msgs10.pose_v_pb2 as pose_v
 import mavsdk
-import mavsdk.action
 import mavsdk.mission as mission
+import multicosim.docker.firmware as fw
+import multicosim.px4 as px4
 
 
 def create_mission_item(waypoint: px4.Waypoint) -> mission.MissionItem:
@@ -35,12 +34,12 @@ def create_mission_item(waypoint: px4.Waypoint) -> mission.MissionItem:
     )
 
 
-def create_mission(config: px4.StartMsg) -> mission.MissionPlan:
+def create_mission(config: px4.PX4Configuration) -> mission.MissionPlan:
     return mission.MissionPlan([create_mission_item(wp) for wp in config.mission])
 
 
-def gz_model_name(model: px4.Model) -> str:
-    if model is px4.Model.X500:
+def gz_model_name(vehicle: px4.Vehicle) -> str:
+    if vehicle is px4.Vehicle.X500:
         return "gz_x500"
 
     raise ValueError()
@@ -112,12 +111,12 @@ async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handle
             break
 
 
-@mcs.serve(msgtype=px4.StartMsg)
-def server(msg: px4.StartMsg) -> px4.States:
+@fw.firmware(msgtype=px4.PX4Configuration)
+def server(msg: px4.PX4Configuration) -> px4.States:
     handler = Handler()
     mission = create_mission(msg)
-    model = gz_model_name(msg.model)
-    env = f"PX4_GZ_STANDALONE=1 PX4_SIM_MODEL={model} PX4_GZ_WORLD={msg.world}"
+    gz_model = gz_model_name(msg.vehicle)
+    env = f"PX4_GZ_STANDALONE=1 PX4_SIM_MODEL={gz_model} PX4_GZ_WORLD={msg.world}"
     cmd = f"{env} /opt/px4-autopilot/build/px4_sitl_default/bin/px4"
 
     logger = logging.getLogger("px4.firmware")
@@ -144,13 +143,13 @@ def server(msg: px4.StartMsg) -> px4.States:
 
 
 @click.command("firmware")
-@click.option("-v", "--verbose", is_flag=True)
-@click.option("-p", "--port", type=int, default=5556)
-def firmware(verbose: bool, port: int):
+@click.option("--verbose", is_flag=True)
+@click.option("--port", type=int, default=5556)
+def firmware(*, verbose: bool, port: int):
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
-
-    server(port)
+    
+    server.listen(port)
 
 
 if __name__ == "__main__":

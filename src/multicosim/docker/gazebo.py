@@ -1,15 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
+import attrs
 import docker
+from typing_extensions import override
 
-from . import containers
+from ..simulations import Node, Component
+from .component import ContainerComponent, ContainerNode
+from .simulation import Environment
 
 if TYPE_CHECKING:
     from docker import DockerClient as Client
@@ -114,7 +118,7 @@ class Simbody(Backend):
 
 
 @dataclass()
-class Gazebo:
+class _Gazebo:
     """Gazebo simulation configuration.
 
     Args:
@@ -132,6 +136,68 @@ class Gazebo:
         return f"--step-size {self.step_size} {self.backend.args}"
 
 
+@attrs.define()
+class GazeboContainerNode(Node):
+    world: str
+    node: ContainerNode
+
+    @override
+    def stop(self):
+        return self.node.stop()
+
+
+class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
+    def __init__(
+        self,
+        image: str = "ghcr.io/cpslab-asu/multicosim/gazebo:harmonic",
+        template: str = "/app/resources/worlds/empty.sdf",
+        model_dir: Path = Path("/app/resources/models"),    
+        world: str = "generated",
+        backend: Backend | None = None,
+        step_size: float = 0.001,
+        sensor_topics: Iterable[tuple[str, str, str]] | None = None,
+        *,
+        headless: bool = False,
+        remove: bool = False,
+        monitor: bool = False,
+    ):
+        if not backend:
+            backend = ODE()
+
+        if not sensor_topics:
+            sensor_topics = {}
+
+        parts = [
+            "gazebo",
+            "--verbose",
+            f"--base {template}",
+            f"--world {world}",
+            f"--step-size {step_size}",
+            f"--model-dir {model_dir}",
+        ]
+
+        if headless:
+            parts.append("--headless")
+
+        for model_name, sensor_name, topic_name in sensor_topics:
+            parts.append(f"--sensor-topic {model_name} {sensor_name} {topic_name}")
+
+        prefix = " ".join(parts)
+        command = f"{prefix} {backend.args}"
+
+        self.world = world
+        self.component = ContainerComponent(
+            image=image,
+            command=command,
+            remove=remove,
+            monitor=monitor,
+        )
+
+    @override
+    def start(self, environment: Environment) -> GazeboContainerNode:
+        return GazeboContainerNode(self.world, self.component.start(environment))
+
+
 @dataclass()
 class Simulation:
     """Gazebo simulation executed in a docker container.
@@ -147,9 +213,42 @@ class GazeboError(Exception):
     pass
 
 
+@attrs.define()
+class BaseGazeboConfig:
+    world: str = attrs.field(default="generated")
+    backend: Backend | None = attrs.field(default=None)
+    step_size: float = attrs.field(default=0.001)
+    remove: bool = attrs.field(default=True, kw_only=True)
+    monitor: bool = attrs.field(default=True, kw_only=True)
+
+
+@attrs.define()
+class GazeboConfig(BaseGazeboConfig):
+    image: str | None= attrs.field(default=None)
+    template: str | None = attrs.field(default=None)
+    model_dir: str | None = attrs.field(default=None)
+    sensor_topics: list[tuple[str, str, str]] = attrs.field(factory=list)
+
+    def params(self) -> dict[str, Any]:
+        params = {}
+        if self.image is not None:
+            params["image"] = self.image
+        if self.template is not None:
+            params["template"] = self.template
+        if self.model_dir is not None:
+            params["template"] = self.model_dir
+        params["world"] = self.world
+        params["backend"] = self.backend
+        params["step_size"] = self.step_size
+        params["sensor_topics"] = self.sensor_topics
+        params["remove"] = self.remove
+        params["monitor"] = self.monitor
+        return params
+
+
 @contextmanager
 def start(
-    config: Gazebo,
+    config: _Gazebo,
     host: Container,
     *,
     image: str = "ghcr.io/cpslab-asu/multicosim/gazebo:harmonic",
