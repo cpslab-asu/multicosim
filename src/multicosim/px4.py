@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from enum import IntEnum
 from typing import Final, TypeVar
 
@@ -8,10 +8,17 @@ import attrs
 from typing_extensions import override
 
 from .__about__ import __version__
-from .docker import Environment
-from .firmware import FirmwareContainerNode, FirmwareConfig
-from .gazebo import GazeboContainerNode, GazeboConfig
-from .gz_firmware import GZFirmwareComponent, GZFirmwareNode, GZFirmware
+from .docker.firmware import (
+    FirmwareConfig,
+    FirmwareContainerNode,
+    GazeboFirmwareSimulator,
+    JointGazeboFirmwareComponent,
+    JointGazeboFirmwareNode,
+)
+from .docker.gazebo import BaseGazeboConfig, GazeboContainerNode
+from .docker.gazebo import GazeboConfig as _GazeboConfig
+from .docker.simulation import Environment
+
 
 class Vehicle(IntEnum):
     X500 = 0
@@ -75,9 +82,6 @@ class States(Iterable[State]):
         return iter(self.values)
 
 
-__all__ = ["Pose", "PX4", "State", "Waypoint"]
-
-
 T = TypeVar("T", covariant=True)
 
 
@@ -87,6 +91,35 @@ DEFAULT_PORT: Final[int] = 5556
 @attrs.frozen()
 class Configuration:
     mission: list[Waypoint] = attrs.field(converter=_mission)
+
+
+class PX4Configuration:
+    def __init__(self, configuration: Configuration, vehicle: Vehicle, world: str):
+        self.mission = configuration.mission
+        self.vehicle = vehicle
+        self.world = world
+
+
+class PX4Node(JointGazeboFirmwareNode[Configuration, States]):
+    def __init__(
+        self,
+        gazebo_node: GazeboContainerNode,
+        fw_node: FirmwareContainerNode[PX4Configuration, States],
+        vehicle: Vehicle,
+        world: str,
+    ):
+        self._vehicle: Vehicle = vehicle
+        self._world: str = world
+        super().__init__(gazebo_node, fw_node)
+
+    @override
+    def send(self, msg: Configuration) -> States:
+        return self.firmware.send(PX4Configuration(msg, self._vehicle, self._world))
+
+@attrs.define()
+class GazeboConfig(BaseGazeboConfig):
+    sensor_topics: Mapping[str, str] = attrs.field(factory=dict)
+
 
 def _resolve_vehicle_model(vehicle: Vehicle) -> str:
     """Determine the name of the actual model to edit.
@@ -107,35 +140,26 @@ def _resolve_vehicle_model(vehicle: Vehicle) -> str:
 
     raise ValueError(f"Unknown PX4 vehicle: {vehicle}")
 
+
 def _create_sensor_topics(gazebo: GazeboConfig, vehicle: Vehicle):
     model = _resolve_vehicle_model(vehicle)
-    return [(model,data[1],data[2]) for data in gazebo.sensor_topics]
+    return [(model, data[1], data[2]) for data in gazebo.sensor_topics]
 
-class PX4Configuration:
-    def __init__(self, configuration: Configuration, vehicle: Vehicle, world: str):
-        self.mission = configuration.mission
-        self.vehicle = vehicle
-        self.world = world
 
-class PX4Node(GZFirmwareNode[Configuration, States]):
-    def __init__(self, gazebo_node: GazeboContainerNode, fw_node: FirmwareContainerNode[Configuration, States], vehicle: Vehicle, world: str):
-        self._vehicle: Vehicle = vehicle
-        self._world: str = world
-        super().__init__(gazebo_node,fw_node)
+class PX4Component(JointGazeboFirmwareComponent):
+    def __init__(
+        self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False
+    ):
+        gz = _GazeboConfig(
+            image="ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic",
+            template=f"/app/resources/worlds/{gazebo.world}.sdf",
+            sensor_topics=_create_sensor_topics(gazebo, vehicle),
+            backend=gazebo.backend,
+            step_size=gazebo.step_size,
+            remove=remove,
+        )
 
-    @override
-    def send(self, msg: Configuration) -> States:
-        return self._firmware.send(PX4Configuration(msg, self._vehicle, self._world))
-
-class PX4Component(GZFirmwareComponent):
-    def __init__(self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False):
-        self.vehicle = vehicle
-        gazebo.image = "ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic"
-        gazebo.template = f"/app/resources/worlds/{gazebo.world}.sdf"
-        gazebo.sensor_topics = _create_sensor_topics(gazebo,vehicle)
-        gazebo.remove = remove
-
-        fw = FirmwareConfig( 
+        fw = FirmwareConfig(
             image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
             command=f"firmware --port {DEFAULT_PORT}",
             port=DEFAULT_PORT,
@@ -144,7 +168,9 @@ class PX4Component(GZFirmwareComponent):
             remove=remove,
             monitor=True,  # Early exit from PX4 firmware should be an error
         )
-        super().__init__(gazebo, fw)
+
+        super().__init__(gz, fw)
+        self.vehicle = vehicle
 
     def start(self, environment: Environment) -> PX4Node:
         return PX4Node(
@@ -154,7 +180,9 @@ class PX4Component(GZFirmwareComponent):
             self.gazebo.world,
         )
 
-class PX4(GZFirmware):
-    def __init__(self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False):
-        super().__init__(PX4Component(gazebo,vehicle,remove=remove))
-    
+
+class PX4(GazeboFirmwareSimulator):
+    def __init__(
+        self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False
+    ):
+        super().__init__(PX4Component(gazebo, vehicle, remove=remove))

@@ -11,7 +11,7 @@ import gz.transport13
 import gz.msgs10.pose_v_pb2 as pose_v
 import mavsdk
 import mavsdk.mission as mission
-import multicosim.firmware as fw
+import multicosim.docker.firmware as fw
 import multicosim.px4 as px4
 
 

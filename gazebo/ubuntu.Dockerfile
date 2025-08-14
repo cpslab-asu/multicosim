@@ -19,9 +19,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ENV GZ_ROOT=/app
-COPY <<EOF /usr/local/bin/gazebo
+COPY <<'EOF' /usr/local/bin/gazebo
 #!/usr/bin/bash
-${GZ_ROOT}/.venv/bin/python3 ${GZ_ROOT}/src/gazebo.py \$@
+/app/.venv/bin/python3 /app/src/gazebo.py $@
 EOF
 
 COPY --from=venv /app ${GZ_ROOT}
