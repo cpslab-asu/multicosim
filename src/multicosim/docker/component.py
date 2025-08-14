@@ -1,109 +1,23 @@
 from __future__ import annotations
 
-from collections.abc import Generator, Iterable, Mapping
+from collections.abc import Generator, Iterable
 from contextlib import ExitStack, contextmanager
 from threading import Event, Thread
-from typing import TYPE_CHECKING, Literal, TypedDict, TypeVar, cast
+from typing import TYPE_CHECKING, Literal, TypedDict, TypeVar
 from warnings import warn
 
 import attrs
-import docker
-import nanoid
 import zmq
 from typing_extensions import TypeAlias, override
 
-from .simulations import CommunicationNode, Component, Node, NodeId, Simulation, Simulator
+from ..simulations import CommunicationNode, Component, Node
+from .simulation import Environment
 
 if TYPE_CHECKING:
-    from docker import DockerClient
     from docker.models.containers import Container
 
 NodeT = TypeVar("NodeT", bound=Node)
 PortProtocol: TypeAlias = Literal["tcp", "udp"]
-
-
-def _nodes(nodes: Mapping[NodeId, Node]) -> dict[NodeId, Node]:
-    return dict(nodes)
-
-
-@attrs.define()
-class ContainerSimulation(Simulation):
-    """A running simulation of multiple components executing in Docker containers.
-
-    Args:
-        nodes: The running simulation nodes with associated ids
-    """
-
-    nodes: dict[NodeId, Node] = attrs.field(converter=_nodes)
-
-    def get(self, node_id: NodeId[NodeT]) -> NodeT:
-        return cast(NodeT, self.nodes[node_id])
-
-    def stop(self):
-        for node in self.nodes.values():
-            node.stop()
-
-
-@attrs.frozen()
-class Environment:
-    client: DockerClient
-    network_name: str
-
-
-def _generate_network_name() -> str:
-    network_name = nanoid.generate()
-
-    while network_name.startswith("_"):
-        network_name = nanoid.generate()
-
-    return network_name
-
-
-class ContainerSimulator(Simulator[Environment, ContainerSimulation]):
-    """A tree of components representing a simulator for a given system using Docker containers.
-
-    Args:
-        *components: Components to add to the simulation to start
-
-    Attributes:
-        network: The docker network to which all containers are connected
-        env: The environment used to start the components
-        components: A mapping of components and their unique identifiers
-    """
-
-    def __init__(self, *components: Component[Environment, Node]):
-        client = docker.from_env()
-        network_name = _generate_network_name()
-
-        self.network = client.networks.create(network_name)
-        self.env = Environment(client, network_name)
-        self.components = {
-            NodeId(): component for component in components
-        }
-
-    def add(self, component: Component[Environment, NodeT]) -> NodeId[NodeT]:
-        """Add a component to the simulation tree.
-
-        Args:
-            component: The component to add
-
-        Returns:
-            The randomly generated unique id associated with the newly added component
-        """
-
-        component_id = NodeId()
-        self.components[component_id] = component
-
-        return component_id
-
-    @override
-    def start(self) -> ContainerSimulation:
-        nodes = {
-            node_id: component.start(self.env)
-            for node_id, component in self.components.items()
-        }
-
-        return ContainerSimulation(nodes)
 
 
 @contextmanager
@@ -180,7 +94,7 @@ class MonitoredContainerError(Exception):
         super().__init__(self, f"Monitored container {container.name} has exited early.")
 
 
-def _watch_container(container: Container, stop: threading.Event):
+def _watch_container(container: Container, stop: Event):
     while True:
         if stop.is_set():
             break

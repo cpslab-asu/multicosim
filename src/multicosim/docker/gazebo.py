@@ -5,14 +5,15 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import attrs
 import docker
 from typing_extensions import override
 
-from .docker import Environment, ContainerComponent, ContainerNode, Node
-from .simulations import Component
+from ..simulations import Node, Component
+from .component import ContainerComponent, ContainerNode
+from .simulation import Environment
 
 if TYPE_CHECKING:
     from docker import DockerClient as Client
@@ -156,6 +157,7 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         step_size: float = 0.001,
         sensor_topics: Iterable[tuple[str, str, str]] | None = None,
         *,
+        headless: bool = False,
         remove: bool = False,
         monitor: bool = False,
     ):
@@ -173,6 +175,9 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
             f"--step-size {step_size}",
             f"--model-dir {model_dir}",
         ]
+
+        if headless:
+            parts.append("--headless")
 
         for model_name, sensor_name, topic_name in sensor_topics:
             parts.append(f"--sensor-topic {model_name} {sensor_name} {topic_name}")
@@ -206,6 +211,39 @@ class Simulation:
 
 class GazeboError(Exception):
     pass
+
+
+@attrs.define()
+class BaseGazeboConfig:
+    world: str = attrs.field(default="generated")
+    backend: Backend | None = attrs.field(default=None)
+    step_size: float = attrs.field(default=0.001)
+    remove: bool = attrs.field(default=True, kw_only=True)
+    monitor: bool = attrs.field(default=True, kw_only=True)
+
+
+@attrs.define()
+class GazeboConfig(BaseGazeboConfig):
+    image: str | None= attrs.field(default=None)
+    template: str | None = attrs.field(default=None)
+    model_dir: str | None = attrs.field(default=None)
+    sensor_topics: list[tuple[str, str, str]] = attrs.field(factory=list)
+
+    def params(self) -> dict[str, Any]:
+        params = {}
+        if self.image is not None:
+            params["image"] = self.image
+        if self.template is not None:
+            params["template"] = self.template
+        if self.model_dir is not None:
+            params["template"] = self.model_dir
+        params["world"] = self.world
+        params["backend"] = self.backend
+        params["step_size"] = self.step_size
+        params["sensor_topics"] = self.sensor_topics
+        params["remove"] = self.remove
+        params["monitor"] = self.monitor
+        return params
 
 
 @contextmanager
