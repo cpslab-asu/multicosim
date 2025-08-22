@@ -1,4 +1,5 @@
-FROM rockylinux:9 AS base
+ARG ROCKY_VERSION=9
+FROM rockylinux:${ROCKY_VERSION} AS base
 
 RUN dnf install -y \
     'dnf-command(config-manager)' \

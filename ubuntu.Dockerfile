@@ -1,4 +1,5 @@
-FROM ubuntu:22.04 AS fetch
+ARG UBUNTU_VERSION=22.04
+FROM ubuntu:${UBUNTU_VERSION} AS fetch
 
 # Install dependencies for adding OSRF Apt repository
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
@@ -12,7 +13,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
 RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" > /etc/apt/sources.list.d/gazebo-stable.list
 
-FROM ubuntu:22.04 AS base
+ARG UBUNTU_VERSION
+FROM ubuntu:${UBUNTU_VERSION} AS base
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/gzcm
 LABEL org.opencontainers.image.description="Base image for other GZCM images"
