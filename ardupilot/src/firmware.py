@@ -18,46 +18,24 @@ def run_ardupilot(vehicle: ap.Vehicle, frame: str):
     logger.addHandler(logging.NullHandler())
 
     workdir = Path("/opt/ardupilot")
-
-    cmd = [
-        "./waf",
-        "configure",
-        "--board",
-        "sitl",
-    ]
-
-    waf_cmd = ["./waf"]
     
-    sim_cmd = [
-        "./Tools/autotest/sim_vehicle.py",
-        "--no-configure",
-        "--no-rebuild",
-        "--frame", f"{frame}",
-    ]
+    sim_cmd = "./Tools/autotest/sim_vehicle.py --no-configure --no-rebuild "
 
     match vehicle:
         case ap.Vehicle.COPTER:
-            waf_cmd.append("copter")
-            sim_cmd.append("--vehicle ArduCopter")
+            sim_cmd += "-v ArduCopter "
         case ap.Vehicle.ROVER:
-            waf_cmd.append("rover")
-            sim_cmd.append("--vehicle Rover")
+            sim_cmd += "-v Rover "
         case ap.Vehicle.PLANE:
-            waf_cmd.append("plane")
-            sim_cmd.append("--vehicle ArduPlane")
+            sim_cmd += "-v ArduPlane "
         case ap.Vehicle.SUB:
-            waf_cmd.append("sub")
-            sim_cmd.append("--vehicle ArduSub")
+            sim_cmd += "-v ArduSub "
         case _:
             raise Exception("Invalid ardupilot vehicle type!")
 
-    logger.debug(f"Running ArduPilot waf config using command: {cmd}")
-    subprocess.run(cmd, cwd=workdir, check=True, shell=True, encoding="utf-8")
+    sim_cmd += f"-f {frame} --model JSON --sim-address=gazebo_harmonic --out=tcpin:ardupilot_sitl:14551"
 
-    logger.debug(f"Running ArduPilot waf config using command: {waf_cmd}")
-    subprocess.run(waf_cmd, cwd=workdir, shell=True, encoding="utf-8")
-
-    logger.debug(f"Running ArduPilot sim using command: {sim_cmd}")
+    print(f"Running ArduPilot sim using command: {sim_cmd}")
     return subprocess.Popen(sim_cmd, cwd=workdir, shell=True, encoding="utf-8")
 
 def start_ardupilot(vehicle: ap.Vehicle, frame: str):
@@ -73,16 +51,19 @@ def start_ardupilot(vehicle: ap.Vehicle, frame: str):
         return ap.Result()
 
     def handle(signum: int, frame: FrameType | None):
+        print("Shutting down!")
         shutdown()
 
+    signal.signal(signal.SIGINT, handle)
     signal.signal(signal.SIGTERM, handle)
-    signal.signal(signal.SIGKILL, handle)
 
     while process.poll() is None:
         try:
             pass
         except KeyboardInterrupt:
             return shutdown()
+        
+    print(f"Process terminated! {process.poll()}")
 
 @fw.firmware(msgtype=ap.Start)
 def server(msg: ap.Start) -> ap.Result:
@@ -94,13 +75,13 @@ def firmware(*,verbose: bool):
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-@click.command()
+@firmware.command("run")
 @click.option("--vehicle", type=click.Choice(ap.Vehicle, case_sensitive=False), default=ap.Vehicle.COPTER)
 @click.option("--frame", type=str, default="quad")
 def run(vehicle: ap.Vehicle, frame: str):
     start_ardupilot(vehicle,frame)
 
-@click.command()
+@firmware.command("listen")
 @click.option("--port", type=int, default=5556)
 def listen(port: int):
     server.listen(port)

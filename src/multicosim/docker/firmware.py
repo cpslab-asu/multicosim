@@ -163,10 +163,12 @@ class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[Ms
         message_type: type[MsgT],
         response_type: type[DataT],
         *,
+        name: str = "",
+        tty: bool = False,
         remove: bool = False,
         monitor: bool = False,
     ):
-        self.component = ReporterComponent(image, command, port, remove=remove, monitor=monitor)
+        self.component = ReporterComponent(image, command, port, tty=tty, name=name, remove=remove, monitor=monitor)
         self.message_type = message_type
         self.response_type = response_type
 
@@ -186,6 +188,8 @@ class FirmwareConfig(Generic[MsgT, DataT]):
     port: int = attrs.field()
     message_type: type[MsgT] = attrs.field()
     response_type: type[DataT] = attrs.field()
+    name: str = attrs.field(default="", kw_only=True)
+    tty: bool = attrs.field(default=False, kw_only=True)
     remove: bool = attrs.field(default=True, kw_only=True)
     monitor: bool = attrs.field(default=True, kw_only=True)
 
@@ -195,9 +199,10 @@ class FirmwareConfig(Generic[MsgT, DataT]):
                 "port" : self.port,
                 "message_type" : self.message_type,
                 "response_type" : self.response_type,
+                "name" : self.name,
+                "tty" : self.tty,
                 "remove" : self.remove,
                 "monitor" : self.monitor}
-
 
 @attrs.define()
 class JointGazeboFirmwareNode(CommunicationNode[MsgT, ResultT]):

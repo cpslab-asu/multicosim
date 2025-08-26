@@ -16,6 +16,9 @@ RUN git clone https://github.com/ArduPilot/ardupilot .
 # Now start build instructions from http://ardupilot.org/dev/docs/setting-up-sitl-on-linux.html
 RUN git submodule update --init --recursive
 
+COPY mods/ardupilot/SIM_JSON.cpp libraries/SITL/
+COPY mods/ardupilot/SIM_JSON.h libraries/SITL/
+
 ####################
 # VENV BUILD SECTION
 ####################
@@ -73,7 +76,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 RUN echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USER_NAME}
 RUN chmod 0440 /etc/sudoers.d/${USER_NAME}
 
-
 # Switch to ardupilot user
 USER ${USER_NAME}
 
@@ -84,12 +86,6 @@ RUN sudo apt-get update && \
             python3-gz-math7 \
             python3-gz-msgs10 \
             python3-gz-transport13
-
-# Copy /app director with virtual environment
-ENV APP_ROOT=/app
-COPY --from=venv --chown=${USER_NAME}:${USER_NAME} /app ${APP_ROOT}
-WORKDIR ${APP_ROOT}
-COPY --chown=${USER_NAME}:${USER_NAME} ./src/ ./src/
 
 # Copy ardupilot directory
 COPY --from=build --chown=${USER_NAME}:${USER_NAME} /opt/ardupilot /opt/ardupilot
@@ -104,10 +100,13 @@ RUN SKIP_AP_GRAPHIC_ENV=1 SKIP_AP_COV_ENV=1 SKIP_AP_GIT_CHECK=1 \
 
 # Continue build instructions from https://github.com/ArduPilot/ardupilot/blob/master/BUILD.md
 RUN ./waf configure --board sitl
-# RUN ./waf copter
+RUN ./waf copter
 # RUN ./waf rover 
 # RUN ./waf plane
 # RUN ./waf sub
+
+# install mavproxy
+RUN sudo pip install mavproxy
 
 # TCP 5760 is what the sim exposes by default
 EXPOSE 5760/tcp
@@ -121,6 +120,20 @@ RUN sudo apt-get clean \
 
 # Set max cache size    
 ENV CCACHE_MAXSIZE=1G
+
+#######################
+# FINAL BUILD SECTION
+#######################
+From firmware AS final
+
+EXPOSE 9002/udp
+EXPOSE 14551/tcp
+
+# Copy /app director with virtual environment
+ENV APP_ROOT=/app
+COPY --from=venv --chown=${USER_NAME}:${USER_NAME} /app ${APP_ROOT}
+WORKDIR ${APP_ROOT}
+COPY --chown=${USER_NAME}:${USER_NAME} ./src/ ./src/
 
 # Create run script 
 COPY <<'EOF' /usr/local/bin/firmware

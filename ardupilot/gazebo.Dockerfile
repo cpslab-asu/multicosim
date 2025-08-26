@@ -1,5 +1,5 @@
 FROM ghcr.io/cpslab-asu/multicosim/gazebo:harmonic AS base
-
+     
 RUN apt-get update \
     &&  DEBIAN_FRONTEND=noninteractive apt-get install -y \
         libgz-sim8-dev \
@@ -24,6 +24,7 @@ RUN apt-get update && \
         ;
 
 RUN git clone https://github.com/ardupilot/ardupilot_gazebo /src/ardupilot_gazebo
+COPY mods/gazebo/ArduPilotPlugin.cc /src/ardupilot_gazebo/src/
 RUN cmake -S /src/ardupilot_gazebo -B /src/ardupilot_gazebo/build -D CMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
 RUN cmake --build /src/ardupilot_gazebo/build
 

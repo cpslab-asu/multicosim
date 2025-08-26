@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import IntEnum
@@ -157,6 +157,7 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         step_size: float = 0.001,
         sensor_topics: Iterable[tuple[str, str, str]] | None = None,
         *,
+        name: str = "",
         headless: bool = False,
         remove: bool = False,
         monitor: bool = False,
@@ -189,6 +190,7 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         self.component = ContainerComponent(
             image=image,
             command=command,
+            name=name,
             remove=remove,
             monitor=monitor,
         )
@@ -218,6 +220,7 @@ class BaseGazeboConfig:
     world: str = attrs.field(default="generated")
     backend: Backend | None = attrs.field(default=None)
     step_size: float = attrs.field(default=0.001)
+    name: str = attrs.field(default="", kw_only=True)
     remove: bool = attrs.field(default=True, kw_only=True)
     monitor: bool = attrs.field(default=True, kw_only=True)
 
@@ -241,6 +244,7 @@ class GazeboConfig(BaseGazeboConfig):
         params["backend"] = self.backend
         params["step_size"] = self.step_size
         params["sensor_topics"] = self.sensor_topics
+        params["name"] = self.name
         params["remove"] = self.remove
         params["monitor"] = self.monitor
         return params

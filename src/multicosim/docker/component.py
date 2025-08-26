@@ -124,6 +124,8 @@ class ContainerComponent(Component[Environment, ContainerNode]):
     image: str = attrs.field()
     command: str = attrs.field()
     ports: dict[int, Literal["tcp", "udp"]] = attrs.field(factory=dict)
+    name: str = attrs.field(default="", kw_only=True)
+    tty: bool = attrs.field(default=False, kw_only=True)
     remove: bool = attrs.field(default=True, kw_only=True)
     monitor: bool = attrs.field(default=False, kw_only=True)
 
@@ -132,6 +134,8 @@ class ContainerComponent(Component[Environment, ContainerNode]):
             image=self.image,
             command=self.command,
             network=environment.network_name,
+            tty=self.tty,
+            name=self.name,
             detach=True,
             ports={
                 f"{port}/{proto}": None for port, proto in self.ports.items()
@@ -187,11 +191,13 @@ class ReporterNode(CommunicationNode[object, object]):
 
 
 class ReporterComponent(Component[Environment, ReporterNode]):
-    def __init__(self, image: str, command: str, port: int, *, remove: bool = True, monitor: bool = False):
+    def __init__(self, image: str, command: str, port: int, *, tty: bool = False, name: str = "", remove: bool = True, monitor: bool = False):
         self.component = ContainerComponent(
             image,
             command,
             ports={port: "tcp"},
+            tty=tty,
+            name=name,
             remove=remove,
             monitor=monitor,
         )

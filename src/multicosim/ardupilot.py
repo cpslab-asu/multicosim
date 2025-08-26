@@ -59,15 +59,23 @@ class State:
 class Result:
     trajectory: list[State] = field()
 
+def _get_image(image: str):
+    if image == "" or image == None:
+        return "ghcr.io/cpslab-asu/multicosim/ardupilot/gazebo:harmonic"
+    else:
+        return image
+
 class ArduPilotComponent(JointGazeboFirmwareComponent):
     def __init__(
-        self, gazebo: BaseGazeboConfig, *, vehicle: Vehicle = Vehicle.NONE, frame: str = "", remove: bool = False
+        self, gazebo: GazeboConfig, *, name: str = "", vehicle: Vehicle = Vehicle.NONE, frame: str = "", remove: bool = False
     ):
         gz = GazeboConfig(
-            image="ghcr.io/cpslab-asu/multicosim/ardupilot/gazebo:harmonic",
-            template=f"/app/resources/worlds/{gazebo.world}.sdf",
+            image=_get_image(gazebo.image),
+            template=gazebo.template,
+            world=gazebo.world,
             backend=gazebo.backend,
             step_size=gazebo.step_size,
+            name=gazebo.name,
             remove=remove,
         )
 
@@ -84,6 +92,8 @@ class ArduPilotComponent(JointGazeboFirmwareComponent):
             port=PORT,
             message_type=Start,
             response_type=Result,
+            name=name,
+            tty=True,
             remove=remove,
             monitor=True,  # Early exit from PX4 firmware should be an error
         )
@@ -99,6 +109,6 @@ class ArduPilotComponent(JointGazeboFirmwareComponent):
 
 class ArduPilot(GazeboFirmwareSimulator):
     def __init__(
-        self, gazebo: BaseGazeboConfig, *, vehicle: Vehicle = Vehicle.NONE, frame: str = "", remove: bool = False
+        self, gazebo: BaseGazeboConfig, *, name: str = "", vehicle: Vehicle = Vehicle.NONE, frame: str = "", remove: bool = False
     ):
-        super().__init__(ArduPilotComponent(gazebo, vehicle=vehicle, frame=frame, remove=remove))
+        super().__init__(ArduPilotComponent(gazebo, name=name, vehicle=vehicle, frame=frame, remove=remove))
