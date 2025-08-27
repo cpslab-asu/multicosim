@@ -124,7 +124,7 @@ ENV CCACHE_MAXSIZE=1G
 #######################
 # FINAL BUILD SECTION
 #######################
-From firmware AS final
+FROM firmware AS final
 
 EXPOSE 9002/udp
 EXPOSE 14551/tcp
