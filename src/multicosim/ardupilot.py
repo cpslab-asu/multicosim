@@ -43,6 +43,7 @@ class Start:
     vehicle: Vehicle = field()
     frame: str = field(default="")
     world: str = field(default="")
+    param_files: list[str] = field(factory=list)
 
 @frozen()
 class Pose:
