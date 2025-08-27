@@ -42,3 +42,35 @@ target "rocky-build" {
 group "rocky" {
   targets = ["rocky-base", "rocky-build"]
 }
+
+group "base" {
+  targets = ["ubuntu", "rocky"]
+}
+
+target "gazebo-ubuntu" {
+  context = "./gazebo"
+  dockerfile = "ubuntu.Dockerfile"
+  args = {
+    GAZEBO_VERSION = GAZEBO_VERSION
+    UBUNTU_VERSION = UBUNTU_VERSION
+  }
+  tags = [
+    "ghcr.io/cpslab-asu/multicosim/gazebo:${GAZEBO_VERSION}-ubuntu${UBUNTU_VERSION}"
+  ]
+}
+
+target "gazebo-rocky" {
+  context = "./gazebo"
+  dockerfile = "rocky.Dockerfile"
+  args = {
+    GAZEBO_VERSION = GAZEBO_VERSION
+    ROCKY_VERSION = ROCKY_VERSION
+  }
+  tags = [
+    "ghcr.io/cpslab-asu/multicosim/gazebo:${GAZEBO_VERSION}-rocky${ROCKY_VERSION}"
+  ]
+}
+
+group "gazebo" {
+  targets = ["gazebo-ubuntu", "gazebo-rocky"]
+}
