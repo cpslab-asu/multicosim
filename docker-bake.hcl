@@ -50,6 +50,9 @@ group "base" {
 target "gazebo-ubuntu" {
   context = "./gazebo"
   dockerfile = "ubuntu.Dockerfile"
+  contexts = {
+    ubuntu = "target:ubuntu",  # depends on ubuntu base image
+  }
   args = {
     GAZEBO_VERSION = GAZEBO_VERSION
     UBUNTU_VERSION = UBUNTU_VERSION
@@ -61,6 +64,9 @@ target "gazebo-ubuntu" {
 
 target "gazebo-rocky" {
   context = "./gazebo"
+  contexts = {
+    rocky = "target:rocky-build",  # depends on rocky build image
+  }
   dockerfile = "rocky.Dockerfile"
   args = {
     GAZEBO_VERSION = GAZEBO_VERSION
