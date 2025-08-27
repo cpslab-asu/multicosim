@@ -1,23 +1,26 @@
 from __future__ import annotations
 
 import logging
-import click
-import asyncio
-import subprocess
+import pathlib
 import signal
+import subprocess
+import typing
 
-from pathlib import Path
-from types import FrameType
+if typing.TYPE_CHECKING:
+    from collections.abc import Sequence
+    from types import FrameType
 
-import multicosim.docker.firmware as fw
-import multicosim.px4 as px4
+import click
+
 import multicosim.ardupilot as ap
+import multicosim.docker.firmware as fw
 
-def run_ardupilot(vehicle: ap.Vehicle, frame: str):
+
+def run_ardupilot(vehicle: ap.Vehicle, frame: str, param_files: list[pathlib.Path]):
     logger = logging.getLogger("ardupilot.firmware.run")
     logger.addHandler(logging.NullHandler())
 
-    workdir = Path("/opt/ardupilot")
+    workdir = pathlib.Path("/opt/ardupilot")
     
     sim_cmd = "./Tools/autotest/sim_vehicle.py --no-configure --no-rebuild "
 
@@ -35,15 +38,19 @@ def run_ardupilot(vehicle: ap.Vehicle, frame: str):
 
     sim_cmd += f"-f {frame} --model JSON --sim-address=gazebo_harmonic --out=tcpin:ardupilot_sitl:14551"
 
-    print(f"Running ArduPilot sim using command: {sim_cmd}")
+    for pfile in param_files:
+        sim_cmd += f" --add-param-file {pfile}"
+
+    logger.debug(f"Running ArduPilot sim using command: {sim_cmd}")
     return subprocess.Popen(sim_cmd, cwd=workdir, shell=True, encoding="utf-8")
 
-def start_ardupilot(vehicle: ap.Vehicle, frame: str):
+
+def start_ardupilot(vehicle: ap.Vehicle, frame: str, param_files: list[pathlib.Path]):
     logger = logging.getLogger("ardupilot.firmware")
     logger.addHandler(logging.NullHandler())
-    logger.debug(f"Running ArduPilot firmware")
+    logger.debug("Running ArduPilot firmware")
 
-    process = run_ardupilot(vehicle, frame)
+    process = run_ardupilot(vehicle, frame, param_files)
 
     def shutdown():
         process.kill()
@@ -65,9 +72,11 @@ def start_ardupilot(vehicle: ap.Vehicle, frame: str):
         
     print(f"Process terminated! {process.poll()}")
 
+
 @fw.firmware(msgtype=ap.Start)
 def server(msg: ap.Start) -> ap.Result:
-    start_ardupilot(msg.vehicle,msg.frame)
+    start_ardupilot(msg.vehicle, msg.frame, msg.param_files)
+
 
 @click.group()
 @click.option("--verbose", is_flag=True)
@@ -75,16 +84,20 @@ def firmware(*,verbose: bool):
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
+
 @firmware.command("run")
 @click.option("--vehicle", type=click.Choice(ap.Vehicle, case_sensitive=False), default=ap.Vehicle.COPTER)
 @click.option("--frame", type=str, default="quad")
-def run(vehicle: ap.Vehicle, frame: str):
-    start_ardupilot(vehicle,frame)
+@click.option("--param-file", type=click.Path(), multiple=True)
+def run(vehicle: ap.Vehicle, frame: str, param_files: Sequence[pathlib.Path]):
+    start_ardupilot(vehicle, frame, list(param_files))
+
 
 @firmware.command("listen")
 @click.option("--port", type=int, default=5556)
 def listen(port: int):
     server.listen(port)
+
 
 if __name__ == "__main__":
     firmware()
