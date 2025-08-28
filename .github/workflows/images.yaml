@@ -23,6 +23,6 @@ jobs:
         uses: docker/bake-action@v6
         with:
           push: false
-          targets: px4,ardupilot
+          targets: ubuntu,multicosim,gazebo-ubuntu,px4,ardupilot
           set: |
             *.platform=linux/amd64,linux/arm64
