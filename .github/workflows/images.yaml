@@ -17,18 +17,18 @@ jobs:
     permissions:
       packages: write
     outputs:
-      multicosim: ${{ steps.digests.outputs.multicosim }}
-      multicosim_arm: ${{ steps.digests.outputs.multicosim-arm }}
-      gazebo: ${{ steps.digests.outputs.gazebo }}
-      gazebo_arm: ${{ steps.digests.outputs.gazebo-arm }}
-      px4_firmware: ${{ steps.digests.outputs.px4-firmware }}
-      px4_firmware_arm: ${{ steps.digests.outputs.px4-firmware-arm }}
-      px4_gazebo: ${{ steps.digests.outputs.px4-gazebo }}
-      px4_gazebo_arm: ${{ steps.digests.outputs.px4-gazebo-arm }}
-      ardupilot_firmware: ${{ steps.digests.outputs.ardupilot-firmware }}
-      ardupilot_firmware_arm: ${{ steps.digests.outputs.ardupilot-firmware-arm }}
-      ardupilot_gazebo: ${{ steps.digests.outputs.ardupilot-gazebo }}
-      ardupilot_gazebo_arm: ${{ steps.digests.outputs.ardupilot-gazebo-arm }}
+      multicosim: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}@${{ steps.digests.outputs.multicosim }}
+      multicosim_arm: ${{env.REGISTRY/${{ env.NAMESPACE }}@${{ steps.digests.outputs.multicosim-arm }}
+      gazebo: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/gazebo@${{ steps.digests.outputs.gazebo }}
+      gazebo_arm: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/gazebo@${{ steps.digests.outputs.gazebo-arm }}
+      px4_firmware: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/px4/firmware@${{ steps.digests.outputs.px4-firmware }}
+      px4_firmware_arm: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/px4/firmware@${{ steps.digests.outputs.px4-firmware-arm }}
+      px4_gazebo: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/px4/gazebo@${{ steps.digests.outputs.px4-gazebo }}
+      px4_gazebo_arm: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/px4/gazebo@${{ steps.digests.outputs.px4-gazebo-arm }}
+      ardupilot_firmware: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ardupilot/firmware@${{ steps.digests.outputs.ardupilot-firmware }}
+      ardupilot_firmware_arm: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ardupilot/firmware@${{ steps.digests.outputs.ardupilot-firmware-arm }}
+      ardupilot_gazebo: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ardupilot/gazebo@${{ steps.digests.outputs.ardupilot-gazebo }}
+      ardupilot_gazebo_arm: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ardupilot/gazebo@${{ steps.digests.outputs.ardupilot-gazebo-arm }}
     env:
       GAZEBO_TAG:
       MULTICOSIM_TAG:
@@ -84,9 +84,13 @@ jobs:
 
       - name: Create manifests and push
         run: |
-          docker buildx imagetools create ${REGISTRY}/${NAMESPACE}:${MULTICOSIM_VERSION} ${{ needs.build.outputs.multicosim }} ${{ needs.build.outputs.multicosim_arm}}
-          docker buildx imagetools create ${REGISTRY}/${NAMESPACE}/gazebo:${GAZEBO_VERSION} ${{ needs.build.outputs.gazebo }} ${{ needs.build.outputs.gazebo_arm }}
-          docker buildx imagetools create ${REGISTRY}/${NAMESPACE}/px4/firmware:${MULTICOSIM_VERSION} ${{ needs.build.outputs.px4_firmware }} ${{ needs.build.outputs.px4_firmware_arm }}
-          docker buildx imagetools create ${REGISTRY}/${NAMESPACE}/px4/gazebo:${GAZEBO_VERSION} ${{ needs.build.outputs.px4_gazebo }} ${{ needs.build.outputs.px4_gazebo_arm }}
-          docker buildx imagetools create ${REGISTRY}/${NAMESPACE}/ardupilot/firmware:${MULTICOSIM_VERSION} ${{ needs.build.outputs.ardupilot_firmware }} ${{ needs.build.outputs.ardupilot_firmware_arm }}
-          docker buildx imagetools create ${REGISTRY}/${NAMESPACE}/ardupilot/gazebo:${GAZEBO_VERSION} ${{ needs.build.outputs.ardupilot_gazebo }} ${{ needs.build.outputs.ardupilot_gazebo_arm }}
+          registry="${{ env.REGISTRY }}"
+          namespace="${{ env.NAMESPACE }}"
+          multicosim_version="${{ env.MULTICOSIM_VERSION }}"
+          gazebo_version="${{ env.GAZEBO_VERSION }}"
+          docker buildx imagetools create ${registry}/${namespace}:${multicosim_version} ${{ needs.build.outputs.multicosim }} ${{ needs.build.outputs.multicosim_arm}}
+          docker buildx imagetools create ${registry}/${namespace}/gazebo:${gazebo_version} ${{ needs.build.outputs.gazebo }} ${{ needs.build.outputs.gazebo_arm }}
+          docker buildx imagetools create ${registry}/${namespace}/px4/firmware:${multicosim_version} ${{ needs.build.outputs.px4_firmware }} ${{ needs.build.outputs.px4_firmware_arm }}
+          docker buildx imagetools create ${registry}/${namespace}/px4/gazebo:${gazebo_version} ${{ needs.build.outputs.px4_gazebo }} ${{ needs.build.outputs.px4_gazebo_arm }}
+          docker buildx imagetools create ${registry}/${namespace}/ardupilot/firmware:${multicosim_version} ${{ needs.build.outputs.ardupilot_firmware }} ${{ needs.build.outputs.ardupilot_firmware_arm }}
+          docker buildx imagetools create ${registry}/${namespace}/ardupilot/gazebo:${gazebo_version} ${{ needs.build.outputs.ardupilot_gazebo }} ${{ needs.build.outputs.ardupilot_gazebo_arm }}
