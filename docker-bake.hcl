@@ -155,7 +155,7 @@ target "ardupilot-gazebo" {
   }
   dockerfile = "gazebo.Dockerfile"
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/ardupilot/gazebo:${MULTICOSIM_VERSION}"
+    "ghcr.io/cpslab-asu/multicosim/ardupilot/gazebo:${GAZEBO_VERSION}"
   ]
 }
 
