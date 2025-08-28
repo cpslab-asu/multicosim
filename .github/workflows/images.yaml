@@ -41,6 +41,7 @@ jobs:
         with:
           targets: multicosim,gazebo,px4,ardupilot
           set: |
+            *.tags=
             *.output=type=image,push-by-digest=true,name-canonical=true,push=true
 
       - name: Extract digests for each image
