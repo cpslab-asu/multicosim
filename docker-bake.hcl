@@ -56,9 +56,6 @@ target "multicosim" {
   contexts = {
     ubuntu = "target:ubuntu"
   }
-  args = {
-    UBUNTU_VERSION = UBUNTU_VERSION
-  }
   tags = [
     "ghcr.io/cpslab-asu/multicosim:${MULTICOSIM_VERSION}"
   ]
@@ -95,17 +92,13 @@ target "gazebo-rocky" {
 }
 
 group "gazebo" {
-  targets = ["gazebo-ubuntu", "gazebo-rocky"]
+  targets = ["gazebo-ubuntu"]
 }
 
 target "px4-gazebo" {
   context = "./px4"
   contexts = {
-    ubuntu = "target:gazebo-ubuntu",
-  }
-  args = {
-    UBUNTU_VERSION = UBUNTU_VERSION
-    GAZEBO_VERSION = GAZEBO_VERSION
+    gazebo = "target:gazebo-ubuntu",
   }
   dockerfile = "gazebo.Dockerfile"
   tags = [
@@ -124,9 +117,7 @@ target "px4-firmware" {
     multicosim = "target:multicosim"
   }
   args = {
-    UBUNTU_VERSION = UBUNTU_VERSION
     PX4_VERSION = PX4_VERSION
-    MULTICOSIM_VERSION = MULTICOSIM_VERSION
   }
   dockerfile = "firmware.Dockerfile"
   tags = [
@@ -149,9 +140,7 @@ target "ardupilot-firmware" {
     multicosim = "target:multicosim"
   }
   args = {
-    UBUNTU_VERSION = UBUNTU_VERSION
     ARDUPILOT_VERSION = ARDUPILOT_VERSION
-    MULTICOSIM_VERSION = MULTICOSIM_VERSION
   }
   dockerfile = "firmware.Dockerfile"
   tags = [
@@ -163,9 +152,6 @@ target "ardupilot-gazebo" {
   context = "./ardupilot"
   contexts = {
     gazebo = "target:gazebo-ubuntu"
-  }
-  args = {
-    GAZEBO_VERSION = GAZEBO_VERSION
   }
   dockerfile = "gazebo.Dockerfile"
   tags = [
