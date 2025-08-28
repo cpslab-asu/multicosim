@@ -1,13 +1,21 @@
+variable "REGISTRY" {
+  default = "ghcr.io"
+}
+
+variable "NAMESPACE" {
+  default = "cpslab-asu/multicosim"
+}
+
 variable "UBUNTU_VERSION" {
   default = "22.04"
 }
 
-variable "ROCKY_VERSION" {
-  default = "9"
+variable "UBUNTU_TAG" {
+  default = ":${UBUNTU_VERSION}"
 }
 
-variable "GAZEBO_VERSION" {
-  default = "harmonic"
+variable "ROCKY_VERSION" {
+  default = "9"
 }
 
 target "ubuntu" {
@@ -16,7 +24,7 @@ target "ubuntu" {
     UBUNTU_VERSION = UBUNTU_VERSION
   }
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION}"
+    "${REGISTRY}/${NAMESPACE}/ubuntu${UBUNTU_TAG}"
   ]
 }
 
@@ -51,14 +59,26 @@ variable "MULTICOSIM_VERSION" {
   default = "latest"
 }
 
+variable "MULTICOSIM_TAG" {
+  default = ":${MULTICOSIM_VERSION}"
+}
+
 target "multicosim" {
   dockerfile = "multicosim.Dockerfile"
   contexts = {
     ubuntu = "target:ubuntu"
   }
   tags = [
-    "ghcr.io/cpslab-asu/multicosim:${MULTICOSIM_VERSION}"
+    "${REGISTRY}/${NAMESPACE}${MULTICOSIM_TAG}"
   ]
+}
+
+variable "GAZEBO_VERSION" {
+  default = "harmonic"
+}
+
+variable "GAZEBO_TAG" {
+  default = ":${GAZEBO_VERSION}"
 }
 
 target "gazebo-ubuntu" {
@@ -69,10 +89,9 @@ target "gazebo-ubuntu" {
   }
   args = {
     GAZEBO_VERSION = GAZEBO_VERSION
-    UBUNTU_VERSION = UBUNTU_VERSION
   }
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/gazebo:${GAZEBO_VERSION}"
+    "${REGISTRY}/${NAMESPACE}/gazebo${GAZEBO_TAG}"
   ]
 }
 
@@ -102,7 +121,7 @@ target "px4-gazebo" {
   }
   dockerfile = "gazebo.Dockerfile"
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/px4/gazebo:${GAZEBO_VERSION}"
+    "${REGISTRY}/${NAMESPACE}/px4/gazebo${GAZEBO_TAG}"
   ]
 }
 
@@ -121,7 +140,7 @@ target "px4-firmware" {
   }
   dockerfile = "firmware.Dockerfile"
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/px4/firmware:${MULTICOSIM_VERSION}"
+    "${REGISTRY}/${NAMESPACE}/px4/firmware${MULTICOSIM_TAG}"
   ]
 }
 
@@ -131,6 +150,17 @@ group "px4" {
 
 variable "ARDUPILOT_VERSION" {
   default = "4.5.7"
+}
+
+target "ardupilot-gazebo" {
+  context = "./ardupilot"
+  contexts = {
+    gazebo = "target:gazebo-ubuntu"
+  }
+  dockerfile = "gazebo.Dockerfile"
+  tags = [
+    "${REGISTRY}/${NAMESPACE}/ardupilot/gazebo${GAZEBO_TAG}"
+  ]
 }
 
 target "ardupilot-firmware" {
@@ -144,18 +174,7 @@ target "ardupilot-firmware" {
   }
   dockerfile = "firmware.Dockerfile"
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/ardupilot/firmware:${MULTICOSIM_VERSION}"
-  ]
-}
-
-target "ardupilot-gazebo" {
-  context = "./ardupilot"
-  contexts = {
-    gazebo = "target:gazebo-ubuntu"
-  }
-  dockerfile = "gazebo.Dockerfile"
-  tags = [
-    "ghcr.io/cpslab-asu/multicosim/ardupilot/gazebo:${GAZEBO_VERSION}"
+    "${REGISTRY}/${NAMESPACE}/ardupilot/firmware${MULTICOSIM_TAG}"
   ]
 }
 
