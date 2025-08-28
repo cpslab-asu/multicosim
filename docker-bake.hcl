@@ -47,6 +47,16 @@ group "base" {
   targets = ["ubuntu", "rocky"]
 }
 
+target "multicosim" {
+  dockerfile = "multicosim.Dockerfile"
+  args = {
+    UBUNTU_VERSION = UBUNTU_VERSION
+  }
+  tags = [
+    "ghcr.io/cpslab-asu/multicosim:${MULTICOSIM_VERSION}"
+  ]
+}
+
 target "gazebo-ubuntu" {
   context = "./gazebo"
   dockerfile = "ubuntu.Dockerfile"
