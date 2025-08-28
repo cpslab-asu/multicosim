@@ -18,7 +18,7 @@ jobs:
       packages: write
     outputs:
       multicosim: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}@${{ steps.digests.outputs.multicosim }}
-      multicosim_arm: ${{env.REGISTRY/${{ env.NAMESPACE }}@${{ steps.digests.outputs.multicosim-arm }}
+      multicosim_arm: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}@${{ steps.digests.outputs.multicosim-arm }}
       gazebo: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/gazebo@${{ steps.digests.outputs.gazebo }}
       gazebo_arm: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/gazebo@${{ steps.digests.outputs.gazebo-arm }}
       px4_firmware: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/px4/firmware@${{ steps.digests.outputs.px4-firmware }}
