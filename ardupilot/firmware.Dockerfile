@@ -1,7 +1,10 @@
+ARG UBUNTU_VERSION=22.04
+ARG MULTICOSIM_VERSION=latest
+
 #######################
 # INITIAL BUILD SECTION
 #######################
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS build
+FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION} AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y git
@@ -19,20 +22,16 @@ RUN git submodule update --init --recursive
 COPY mods/ardupilot/SIM_JSON.cpp libraries/SITL/
 COPY mods/ardupilot/SIM_JSON.h libraries/SITL/
 
+
 ####################
 # VENV BUILD SECTION
 ####################
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS venv
+FROM ghcr.io/cpslab-asu/multicosim:${MULTICOSIM_VERSION} AS venv
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV MULTICOSIM_ROOT=/opt/multicosim
 ENV APP_ROOT=/app
 
-# Install python3
-RUN apt-get update && apt-get install -y python3
-
-# Set multicosim and app directoies
-RUN mkdir ${MULTICOSIM_ROOT}
+# Set app directoies
 RUN mkdir ${APP_ROOT}
 WORKDIR ${APP_ROOT}
 
@@ -43,14 +42,13 @@ RUN uv venv --system-site-packages --seed --python-preference only-system
 RUN uv sync --frozen --no-dev
 
 # Copy multicosim files
-COPY --from=multicosim ./pyproject.toml ./README.md ${MULTICOSIM_ROOT}/
-COPY --from=multicosim ./src/ ${MULTICOSIM_ROOT}/src/
 RUN uv pip install --reinstall ${MULTICOSIM_ROOT}
+
 
 #######################
 # FIRWARE BUILD SECTION
 #######################
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS firmware
+FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION} AS firmware
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="MultiCoSim image with ArduPilot firmware"

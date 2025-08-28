@@ -137,3 +137,42 @@ target "px4-firmware" {
 group "px4" {
   targets = ["px4-gazebo", "px4-firmware"]
 }
+
+variable "ARDUPILOT_VERSION" {
+  default = "4.5.7"
+}
+
+target "ardupilot-firmware" {
+  context = "./ardupilot"
+  contexts = {
+    ubuntu = "target:ubuntu"
+    multicosim = "target:multicosim"
+  }
+  args = {
+    UBUNTU_VERSION = UBUNTU_VERSION
+    ARDUPILOT_VERSION = ARDUPILOT_VERSION
+    MULTICOSIM_VERSION = MULTICOSIM_VERSION
+  }
+  dockerfile = "firmware.Dockerfile"
+  tags = [
+    "ghcr.io/cpslab-asu/multicosim/ardupilot/firmware:${MULTICOSIM_VERSION}"
+  ]
+}
+
+target "ardupilot-gazebo" {
+  context = "./ardupilot"
+  contexts = {
+    gazebo = "target:gazebo-ubuntu"
+  }
+  args = {
+    GAZEBO_VERSION = GAZEBO_VERSION
+  }
+  dockerfile = "gazebo.Dockerfile"
+  tags = [
+    "ghcr.io/cpslab-asu/multicosim/ardupilot/gazebo:${GAZEBO_VERSION}"
+  ]
+}
+
+group "ardupilot" {
+  targets = ["ardupilot-firmware", "ardupilot-gazebo"]
+}
