@@ -1,4 +1,5 @@
-FROM ghcr.io/cpslab-asu/multicosim/rocky/build:9.6 AS gts_build
+ARG ROCKY_VERSION=9
+FROM ghcr.io/cpslab-asu/multicosim/build:rocky${ROCKY_VERSION} AS gts_build
 
 RUN dnf install -y netpbm-devel gtk2-devel
 
@@ -15,7 +16,8 @@ RUN rm -fr /workspace/gts
 RUN dnf group remove -y "Development Tools" && \
 	dnf remove -y netpbm-devel gtk2-devel
 
-FROM ghcr.io/cpslab-asu/multicosim/rocky/build:9.6 AS dart_build
+ARG ROCKY_VERSION
+FROM ghcr.io/cpslab-asu/multicosim/build:rocky${ROCKY_VERSION} AS dart_build
 
 WORKDIR workspace
 
@@ -90,7 +92,8 @@ RUN dnf group remove -y "Development Tools" && \
 	boost-devel \
 	lapack-devel
 
-FROM ghcr.io/cpslab-asu/multicosim/rocky/build:9.6 AS ogre_build
+ARG ROCKY_VERSION
+FROM ghcr.io/cpslab-asu/multicosim/build:rocky${ROCKY_VERSION} AS ogre_build
 
 WORKDIR workspace
 
@@ -131,7 +134,8 @@ RUN cmake -DOGRE_GLSUPPORT_USE_EGL_HEADLESS=1 ../ogre-next && \
     SDL2-devel \
 	ninja-build
 
-FROM ghcr.io/cpslab-asu/multicosim/rocky/build:9.6 AS gazebo_build
+ARG ROCKY_VERSION
+FROM ghcr.io/cpslab-asu/multicosim/build:rocky${ROCKY_VERSION} AS gazebo_build
 
 ARG GZ_VERSION=harmonic
 
@@ -288,7 +292,8 @@ RUN /vcs_colcon_installation/bin/colcon graph && \
 	cp -r src/gz-sim/examples/worlds/* install/worlds && \
 	rm -fr build src
 
-FROM ghcr.io/cpslab-asu/multicosim/rocky/base:9.6 AS venv
+ARG ROCKY_VERSION
+FROM ghcr.io/cpslab-asu/multicosim/base:rocky${ROCKY_VERSION} AS venv
 
 WORKDIR /app
 
@@ -297,7 +302,8 @@ RUN --mount=from=ghcr.io/astral-sh/uv:0.5.29,source=/uv,target=/bin/uv \
     uv venv --system-site-packages --relocatable && \
     uv sync --python-preference only-system --frozen --no-dev
 
-FROM ghcr.io/cpslab-asu/multicosim/rocky/base:9.6 AS gazebo
+ARG ROCKY_VERSION
+FROM ghcr.io/cpslab-asu/multicosim/base:rocky${ROCKY_VERSION} AS gazebo
 
 # LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 # LABEL org.opencontainers.image.description="Base gazebo for derived MultiCoSim gazebo images"
