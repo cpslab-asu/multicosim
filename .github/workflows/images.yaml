@@ -8,6 +8,7 @@ env:
   PX4_VERSION: "1.15.0"
   ARDUPILOT_VERSION: "4.5.7"
   UBUNTU_VERSION: "22.04"
+  MULTICOSIM_VERSION: "0.2.0"
 
 jobs:
   build:
@@ -20,6 +21,9 @@ jobs:
       px4_gazebo: ${{ steps.digests.outputs.px4-gazebo }} ${{ steps.digests.outputs.px4-gazebo-arm }}
       ardupilot_firmware: ${{ steps.digests.outputs.ardupilot-firmware }} ${{ steps.digests.outputs.ardupilot-firmware-arm }}
       ardupilot_gazebo: ${{ steps.digests.outputs.ardupilot-gazebo }} ${{ steps.digests.outputs.ardupilot-gazebo-arm }}
+    env:
+      GAZEBO_TAG:
+      MULTICOSIM_TAG:
     strategy:
       matrix:
         os: [ubuntu-24.04, ubuntu-24.04-arm]
@@ -41,7 +45,6 @@ jobs:
         with:
           targets: multicosim,gazebo,px4,ardupilot
           set: |
-            *.tags=
             *.output=type=image,push-by-digest=true,name-canonical=true,push=true
 
       - name: Extract digests for each image
