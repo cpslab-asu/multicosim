@@ -3,22 +3,85 @@ name: Build Container Images
 on:
   push:
 
+env:
+  GAZEBO_VERSION: "harmonic"
+  PX4_VERSION: "1.15.0"
+  ARDUPILOT_VERSION: "4.5.7"
+  UBUNTU_VERSION: "22.04"
+
 jobs:
   build:
+    permissions:
+      packages: write
+    outputs:
+      multicosim: ${{ steps.digests.outputs.multicosim }} ${{ steps.digests.outputs.multicosim-arm }}
+      gazebo: ${{ steps.digests.outputs.gazebo }} ${{ steps.digests.outputs.gazebo-arm }}
+      px4_firmware: ${{ steps.digests.outputs.px4-firmware }} ${{ steps.digests.outputs.px4-firmware-arm }}
+      px4_gazebo: ${{ steps.digests.outputs.px4-gazebo }} ${{ steps.digests.outputs.px4-gazebo-arm }}
+      ardupilot_firmware: ${{ steps.digests.outputs.ardupilot-firmware }} ${{ steps.digests.outputs.ardupilot-firmware-arm }}
+      ardupilot_gazebo: ${{ steps.digests.outputs.ardupilot-gazebo }} ${{ steps.digests.outputs.ardupilot-gazebo-arm }}
     strategy:
       matrix:
         os: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
-    env:
-      GAZEBO_VERSION: "harmonic"
-      PX4_VERSION: "1.15.0"
-      ARDUPILOT_VERSION: "4.5.7"
-      UBUNTU_VERSION: "22.04"
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build images
+        id: bake
         uses: docker/bake-action@v6
         with:
           targets: multicosim,gazebo,px4,ardupilot
+          set: |
+            *.output=type=image,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Extract digests for each image
+        id: digests
+        run: |
+          os="${{ matrix.os }}"
+          tag=$(echo ${os} | sed 's/ubuntu-24.04//')
+          echo "multicosim${tag}=${{ fromJSON(steps.bake.outputs.metadata).multicosim['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "gazebo${tag}=${{ fromJSON(steps.bake.outputs.metadata).gazebo-ubuntu['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "px4-firmware${tag}=${{ fromJSON(steps.bake.outputs.metadata).px4-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "px4-gazebo${tag}=${{ fromJSON(steps.bake.outputs.metadata).px4-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "ardupilot-firmware${tag}=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "ardupilot-gazebo${tag}=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+
+  merge:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - name: Download digests
+        uses: actions/download-artifacts@v4
+        with:
+          path: ${{ runner.temp }}/digest
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifests and push
+        run: |
+          docker buildx imagetools create ghcr.io/cpslab-asu/multicosim:${MULTICOSIM_VERSION} ${{ needs.build.outputs.multicosim }}
+          docker buildx imagetools create ghcr.io/cpslab-asu/gazebo:${GAZEBO_VERSION} ${{ needs.build.outputs.gazebo }}
+          docker buildx imagetools create ghcr.io/cpslab-asu/px4/firmware:${MULTICOSIM_VERSION} ${{ needs.build.outputs.px4_firmware }}
+          docker buildx imagetools create ghcr.io/cpslab-asu/px4/gazebo:${GAZEBO_VERSION} ${{ needs.build.outputs.px4_gazebo }}
+          docker buildx imagetools create ghcr.io/cpslab-asu/ardupilot/firmware:${MULTICOSIM_VERSION} ${{ needs.build.outputs.ardupilot_firmware }}
+          docker buildx imagetools create ghcr.io/cpslab-asu/ardupilot/gazebo:${GAZEBO_VERSION} ${{ needs.build.outputs.ardupilot_gazebo }}
