@@ -19,10 +19,57 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build images
+      - name: Build base image
+        id: base
         uses: docker/bake-action@v6
         with:
           push: false
-          targets: ubuntu,multicosim,gazebo-ubuntu,px4,ardupilot
+          targets: ubuntu
+          set: |
+            *.platform=linux/amd64,linux/arm64
+
+      - name: Build MultiCoSim image
+        id: multicosim
+        depends:
+          - base
+        uses: docker/bake-action@v6
+        with:
+          push: false
+          targets: multicosim
+          set: |
+            *.platform=linux/amd64,linux/arm64
+
+      - name: Build Gazebo image
+        id: gazebo
+        depends:
+          - base
+        uses: docker/bake-action@v6
+        with:
+          push: false
+          targets: gazebo-ubuntu
+          set: |
+            *.platform=linux/amd64,linux/arm64
+
+      - name: Build PX4 images
+        id: px4
+        uses: docker/bake-action@v6
+        depends:
+          - multicosim
+          - gazebo
+        with:
+          push: false
+          targets: px4
+          set: |
+            *.platform=linux/amd64,linux/arm64
+
+      - name: Build ArduPilot images
+        id: ardupilot
+        uses: docker/bake-action@v6
+        depends:
+          - multicosim
+          - gazebo
+        with:
+          push: false
+          targets: px4
           set: |
             *.platform=linux/amd64,linux/arm64
