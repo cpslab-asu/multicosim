@@ -1,5 +1,7 @@
-ARG UBUNTU_VERSION=22.04
-FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION}
+# syntax=docker/dockerfile:1
+
+#ARG UBUNTU_VERSION=22.04
+FROM ubuntu
 
 ENV MULTICOSIM_ROOT=/opt/multicosim
 

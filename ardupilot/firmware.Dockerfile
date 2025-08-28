@@ -1,10 +1,7 @@
-ARG UBUNTU_VERSION=22.04
-ARG MULTICOSIM_VERSION=latest
-
 #######################
 # INITIAL BUILD SECTION
 #######################
-FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION} AS build
+FROM ubuntu AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y git
@@ -26,7 +23,7 @@ COPY mods/ardupilot/SIM_JSON.h libraries/SITL/
 ####################
 # VENV BUILD SECTION
 ####################
-FROM ghcr.io/cpslab-asu/multicosim:${MULTICOSIM_VERSION} AS venv
+FROM multicosim AS venv
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV APP_ROOT=/app
@@ -48,7 +45,7 @@ RUN uv pip install --reinstall ${MULTICOSIM_ROOT}
 #######################
 # FIRWARE BUILD SECTION
 #######################
-FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION} AS firmware
+FROM ubuntu AS firmware
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="MultiCoSim image with ArduPilot firmware"

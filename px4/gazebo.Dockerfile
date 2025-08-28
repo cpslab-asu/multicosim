@@ -1,5 +1,4 @@
-ARG GZ_VERSION=harmonic
-FROM ghcr.io/cpslab-asu/multicosim/gazebo:${GZ_VERSION}
+FROM gazebo
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="MultiCoSim gazebo image with PX4 models and worlds"
