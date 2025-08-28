@@ -16,7 +16,7 @@ target "ubuntu" {
     UBUNTU_VERSION = UBUNTU_VERSION
   }
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/base:ubuntu${UBUNTU_VERSION}"
+    "ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION}"
   ]
 }
 
@@ -27,7 +27,7 @@ target "rocky-base" {
     ROCKY_VERSION = ROCKY_VERSION
   }
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/base:rocky${ROCKY_VERSION}"
+    "ghcr.io/cpslab-asu/multicosim/rocky:${ROCKY_VERSION}"
   ]
 }
 
@@ -35,7 +35,7 @@ target "rocky-build" {
   inherits = ["rocky-base"]
   target = "build"
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/build:rocky${ROCKY_VERSION}"
+    "ghcr.io/cpslab-asu/multicosim/rocky/build:${ROCKY_VERSION}"
   ]
 }
 
@@ -47,8 +47,15 @@ group "base" {
   targets = ["ubuntu", "rocky"]
 }
 
+variable "MULTICOSIM_VERSION" {
+  default = "latest"
+}
+
 target "multicosim" {
   dockerfile = "multicosim.Dockerfile"
+  contexts = {
+    ubuntu = "target:ubuntu"
+  }
   args = {
     UBUNTU_VERSION = UBUNTU_VERSION
   }
@@ -68,7 +75,7 @@ target "gazebo-ubuntu" {
     UBUNTU_VERSION = UBUNTU_VERSION
   }
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/gazebo:${GAZEBO_VERSION}-ubuntu${UBUNTU_VERSION}"
+    "ghcr.io/cpslab-asu/multicosim/gazebo:${GAZEBO_VERSION}"
   ]
 }
 
@@ -83,7 +90,7 @@ target "gazebo-rocky" {
     ROCKY_VERSION = ROCKY_VERSION
   }
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/gazebo:${GAZEBO_VERSION}-rocky${ROCKY_VERSION}"
+    "ghcr.io/cpslab-asu/multicosim/rocky/gazebo:${GAZEBO_VERSION}"
   ]
 }
 
@@ -102,16 +109,12 @@ target "px4-gazebo" {
   }
   dockerfile = "gazebo.Dockerfile"
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/px4/gazebo:${GAZEBO_VERSION}-ubuntu${UBUNTU_VERSION}"
+    "ghcr.io/cpslab-asu/multicosim/px4/gazebo:${GAZEBO_VERSION}"
   ]
 }
 
 variable "PX4_VERSION" {
   default = "1.15.0"
-}
-
-variable "MULTICOSIM_VERSION" {
-  default = null
 }
 
 target "px4-firmware" {

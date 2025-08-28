@@ -1,5 +1,5 @@
 ARG UBUNTU_VERSION=22.04
-FROM ghcr.io/cpslab-asu/multicosim/base:ubuntu${UBUNTU_VERSION} AS venv
+FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION} AS venv
 
 WORKDIR /app
 
@@ -8,8 +8,8 @@ RUN --mount=from=ghcr.io/astral-sh/uv:0.5.29,source=/uv,target=/bin/uv \
     uv venv --system-site-packages --relocatable && \
     uv sync --python-preference only-system --frozen --no-dev
 
-ARG UBUNTU_VERSION
-FROM ghcr.io/cpslab-asu/multicosim/base:ubuntu${UBUNTU_VERSION} AS gazebo
+
+FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION} AS gazebo
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="Base gazebo for derived MultiCoSim gazebo images"

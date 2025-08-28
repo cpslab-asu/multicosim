@@ -1,6 +1,7 @@
 ARG UBUNTU_VERSION=22.04
-ARG MULTICOSIM_VERSION
-FROM ghcr.io/cpslab-asu/multicosim/base:ubuntu${UBUNTU_VERSION} AS build
+ARG MULTICOSIM_VERSION=latest
+
+FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION} AS build
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -36,7 +37,7 @@ RUN python3 -m venv .venv
 RUN .venv/bin/pip install -r ./Tools/setup/requirements.txt
 RUN . .venv/bin/activate && make px4_sitl
 
-ARG MULTICOSIM_VERSION
+
 FROM ghcr.io/cpslab-asu/multicosim:${MULTICOSIM_VERSION} AS venv
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -55,8 +56,7 @@ RUN patch .venv/lib/python3.10/site-packages/mavsdk/system.py mavsdk.patch
 RUN uv pip install --reinstall ${MULTICOSIM_ROOT}
 
 
-ARG UBUNTU_VERSION
-FROM ghcr.io/cpslab-asu/multicosim/base:ubuntu${UBUNTU_VERSION} AS firmware
+FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION} AS firmware
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="MultiCoSim image with PX4 firmware"

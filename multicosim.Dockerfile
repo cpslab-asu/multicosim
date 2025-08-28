@@ -1,5 +1,5 @@
 ARG UBUNTU_VERSION=22.04
-FROM ghcr.io/cpslab-asu/multicosim/base:ubuntu${UBUNTU_VERSION}
+FROM ghcr.io/cpslab-asu/multicosim/ubuntu:${UBUNTU_VERSION}
 
 ENV MULTICOSIM_ROOT=/opt/multicosim
 
