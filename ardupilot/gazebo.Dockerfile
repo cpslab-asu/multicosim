@@ -1,6 +1,4 @@
-ARG GAZEBO_VERSION=harmonic
-
-FROM ghcr.io/cpslab-asu/multicosim/gazebo:${GAZEBO_VERSION} AS base
+FROM gazebo AS base
      
 RUN apt-get update \
     &&  DEBIAN_FRONTEND=noninteractive apt-get install -y \
