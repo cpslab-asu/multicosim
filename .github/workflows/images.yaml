@@ -23,29 +23,22 @@ jobs:
         id: base
         uses: docker/bake-action@v6
         with:
-          push: false
           targets: ubuntu
           set: |
             *.platform=linux/amd64,linux/arm64
 
       - name: Build MultiCoSim image
         id: multicosim
-        depends:
-          - base
         uses: docker/bake-action@v6
         with:
-          push: false
           targets: multicosim
           set: |
             *.platform=linux/amd64,linux/arm64
 
       - name: Build Gazebo image
         id: gazebo
-        depends:
-          - base
         uses: docker/bake-action@v6
         with:
-          push: false
           targets: gazebo-ubuntu
           set: |
             *.platform=linux/amd64,linux/arm64
@@ -53,11 +46,7 @@ jobs:
       - name: Build PX4 images
         id: px4
         uses: docker/bake-action@v6
-        depends:
-          - multicosim
-          - gazebo
         with:
-          push: false
           targets: px4
           set: |
             *.platform=linux/amd64,linux/arm64
@@ -65,11 +54,7 @@ jobs:
       - name: Build ArduPilot images
         id: ardupilot
         uses: docker/bake-action@v6
-        depends:
-          - multicosim
-          - gazebo
         with:
-          push: false
           targets: px4
           set: |
             *.platform=linux/amd64,linux/arm64
