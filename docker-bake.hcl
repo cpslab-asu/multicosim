@@ -1,5 +1,5 @@
 variable "UBUNTU_VERSION" {
-  default = "24.04"
+  default = "22.04"
 }
 
 variable "ROCKY_VERSION" {
