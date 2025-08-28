@@ -90,3 +90,47 @@ target "gazebo-rocky" {
 group "gazebo" {
   targets = ["gazebo-ubuntu", "gazebo-rocky"]
 }
+
+target "px4-gazebo" {
+  context = "./px4"
+  contexts = {
+    ubuntu = "target:gazebo-ubuntu",
+  }
+  args = {
+    UBUNTU_VERSION = UBUNTU_VERSION
+    GAZEBO_VERSION = GAZEBO_VERSION
+  }
+  dockerfile = "gazebo.Dockerfile"
+  tags = [
+    "ghcr.io/cpslab-asu/multicosim/px4/gazebo:${GAZEBO_VERSION}-ubuntu${UBUNTU_VERSION}"
+  ]
+}
+
+variable "PX4_VERSION" {
+  default = "1.15.0"
+}
+
+variable "MULTICOSIM_VERSION" {
+  default = null
+}
+
+target "px4-firmware" {
+  context = "./px4"
+  contexts = {
+    ubuntu = "target:ubuntu"
+    multicosim = "target:multicosim"
+  }
+  args = {
+    UBUNTU_VERSION = UBUNTU_VERSION
+    PX4_VERSION = PX4_VERSION
+    MULTICOSIM_VERSION = MULTICOSIM_VERSION
+  }
+  dockerfile = "firmware.Dockerfile"
+  tags = [
+    "ghcr.io/cpslab-asu/multicosim/px4/firmware:${MULTICOSIM_VERSION}"
+  ]
+}
+
+group "px4" {
+  targets = ["px4-gazebo", "px4-firmware"]
+}
