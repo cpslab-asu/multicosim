@@ -87,6 +87,7 @@ jobs:
         env:
           PREFIX: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}
         run: |
+          echo "${{ toJSON(needs.build.outputs) }}"
           docker buildx imagetools create -t $PREFIX:$MULTICOSIM_VERSION ${{ needs.build.outputs.multicosim }} ${{ needs.build.outputs.multicosim_arm}}
           docker buildx imagetools create -t $PREFIX/gazebo:$GAZEBO_VERSION ${{ needs.build.outputs.gazebo }} ${{ needs.build.outputs.gazebo_arm }}
           docker buildx imagetools create -t $PREFIX/px4/firmware:$MULTICOSIM_VERSION ${{ needs.build.outputs.px4_firmware }} ${{ needs.build.outputs.px4_firmware_arm }}
