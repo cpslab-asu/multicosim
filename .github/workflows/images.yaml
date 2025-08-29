@@ -58,14 +58,14 @@ jobs:
       - name: Extract digests for each image
         id: digests
         run: |
-          os="${{ matrix.os }}"
-          tag=$(echo ${os} | sed 's/ubuntu-24.04//')
-          echo "multicosim${tag}=${{ fromJSON(steps.bake.outputs.metadata).multicosim['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "gazebo${tag}=${{ fromJSON(steps.bake.outputs.metadata).gazebo-ubuntu['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "px4-firmware${tag}=${{ fromJSON(steps.bake.outputs.metadata).px4-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "px4-gazebo${tag}=${{ fromJSON(steps.bake.outputs.metadata).px4-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "ardupilot-firmware${tag}=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "ardupilot-gazebo${tag}=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          tag=$(echo "${{ matrix.os }}" | sed 's/ubuntu-24.04//')
+          echo "multicosim$tag=${{ fromJSON(steps.bake.outputs.metadata).multicosim['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "gazebo$tag=${{ fromJSON(steps.bake.outputs.metadata).gazebo-ubuntu['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "px4-firmware$tag=${{ fromJSON(steps.bake.outputs.metadata).px4-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "px4-gazebo$tag=${{ fromJSON(steps.bake.outputs.metadata).px4-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "ardupilot-firmware$tag=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "ardupilot-gazebo$tag=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo $GITHUB_OUTPUT
 
   merge:
     runs-on: ubuntu-latest
@@ -83,14 +83,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create manifests and push
+        env:
+          PREFIX: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}
         run: |
-          registry="${{ env.REGISTRY }}"
-          namespace="${{ env.NAMESPACE }}"
-          multicosim_version="${{ env.MULTICOSIM_VERSION }}"
-          gazebo_version="${{ env.GAZEBO_VERSION }}"
-          docker buildx imagetools create ${registry}/${namespace}:${multicosim_version} ${{ needs.build.outputs.multicosim }} ${{ needs.build.outputs.multicosim_arm}}
-          docker buildx imagetools create ${registry}/${namespace}/gazebo:${gazebo_version} ${{ needs.build.outputs.gazebo }} ${{ needs.build.outputs.gazebo_arm }}
-          docker buildx imagetools create ${registry}/${namespace}/px4/firmware:${multicosim_version} ${{ needs.build.outputs.px4_firmware }} ${{ needs.build.outputs.px4_firmware_arm }}
-          docker buildx imagetools create ${registry}/${namespace}/px4/gazebo:${gazebo_version} ${{ needs.build.outputs.px4_gazebo }} ${{ needs.build.outputs.px4_gazebo_arm }}
-          docker buildx imagetools create ${registry}/${namespace}/ardupilot/firmware:${multicosim_version} ${{ needs.build.outputs.ardupilot_firmware }} ${{ needs.build.outputs.ardupilot_firmware_arm }}
-          docker buildx imagetools create ${registry}/${namespace}/ardupilot/gazebo:${gazebo_version} ${{ needs.build.outputs.ardupilot_gazebo }} ${{ needs.build.outputs.ardupilot_gazebo_arm }}
+          docker buildx imagetools create $PREFIX:$MULTICOSIM_VERSION ${{ needs.build.outputs.multicosim }} ${{ needs.build.outputs.multicosim_arm}}
+          docker buildx imagetools create $PREFIX/gazebo:$GAZEBO_VERSION ${{ needs.build.outputs.gazebo }} ${{ needs.build.outputs.gazebo_arm }}
+          docker buildx imagetools create $PREFIX/px4/firmware:$MULTICOSIM_VERSION ${{ needs.build.outputs.px4_firmware }} ${{ needs.build.outputs.px4_firmware_arm }}
+          docker buildx imagetools create $PREFIX/px4/gazebo:$GAZEBO_VERSION ${{ needs.build.outputs.px4_gazebo }} ${{ needs.build.outputs.px4_gazebo_arm }}
+          docker buildx imagetools create $PREFIX/ardupilot/firmware:$MULTICOSIM_VERSION ${{ needs.build.outputs.ardupilot_firmware }} ${{ needs.build.outputs.ardupilot_firmware_arm }}
+          docker buildx imagetools create $PREFIX/ardupilot/gazebo:$GAZEBO_VERSION ${{ needs.build.outputs.ardupilot_gazebo }} ${{ needs.build.outputs.ardupilot_gazebo_arm }}
