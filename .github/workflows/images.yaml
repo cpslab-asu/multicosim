@@ -60,12 +60,12 @@ jobs:
         run: |
           suffix=$(echo "${{ matrix.os }}" | sed 's/ubuntu-24.04//')
           echo "Output suffix: ${suffix}"
-          echo "multicosim${tag}=${{ fromJSON(steps.bake.outputs.metadata).multicosim['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "gazebo${tag}=${{ fromJSON(steps.bake.outputs.metadata).gazebo-ubuntu['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "px4-firmware${tag}=${{ fromJSON(steps.bake.outputs.metadata).px4-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "px4-gazebo${tag}=${{ fromJSON(steps.bake.outputs.metadata).px4-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "ardupilot-firmware${tag}=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
-          echo "ardupilot-gazebo${tag}=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "multicosim${suffix}=${{ fromJSON(steps.bake.outputs.metadata).multicosim['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "gazebo${suffix}=${{ fromJSON(steps.bake.outputs.metadata).gazebo-ubuntu['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "px4-firmware${suffix}=${{ fromJSON(steps.bake.outputs.metadata).px4-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "px4-gazebo${suffix}=${{ fromJSON(steps.bake.outputs.metadata).px4-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "ardupilot-firmware${suffix}=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-firmware['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
+          echo "ardupilot-gazebo${suffix}=${{ fromJSON(steps.bake.outputs.metadata).ardupilot-gazebo['containerimage.digest'] }}" >> "$GITHUB_OUTPUT"
           cat $GITHUB_OUTPUT
 
   merge:
