@@ -17,18 +17,18 @@ jobs:
     permissions:
       packages: write
     outputs:
-      multicosim: ${{ format("{0}/{1}@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.multicosim) }}
-      multicosim_arm: ${{ format("{0}/{1}@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.multicosim-arm) }}
-      gazebo: ${{ format("{0}/{1}/gazebo@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.gazebo) }}
-      gazebo_arm: ${{ format("{0}/{1}/gazebo@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.gazebo-arm) }}
-      px4_firmware: ${{ format("{0}/{1}/px4/firmware@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.px4-firmware) }}
-      px4_firmware_arm: ${{ format("{0}/{1}/px4/firmware@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.px4-firmware-arm) }}
-      px4_gazebo: ${{ format("{0}/{1}/px4/gazebo@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.px4-gazebo) }}
-      px4_gazebo_arm: ${{ format("{0}/{1}/px4/gazebo@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.px4-gazebo-arm) }}
-      ardupilot_firmware: ${{ format("{0}/{1}/ardupilot/firmware@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.ardupilot-firmware) }}
-      ardupilot_firmware_arm: ${{ format("{0}/{1}/ardupilot/firmware@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.ardupilot-firmware-arm) }}
-      ardupilot_gazebo: ${{ format("{0}/{1}/ardupilot/gazebo@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.ardupilot-gazebo) }}
-      ardupilot_gazebo_arm: ${{ format("{0}/{1}/ardupilot/gazebo@{2}", env.REGISTRY, env.NAMESPACE, steps.digests.outputs.ardupilot-gazebo-arm) }}
+      multicosim: ${{ format('{0}/{1}@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.multicosim) }}
+      multicosim_arm: ${{ format('{0}/{1}@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.multicosim-arm) }}
+      gazebo: ${{ format('{0}/{1}/gazebo@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.gazebo) }}
+      gazebo_arm: ${{ format('{0}/{1}/gazebo@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.gazebo-arm) }}
+      px4_firmware: ${{ format('{0}/{1}/px4/firmware@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.px4-firmware) }}
+      px4_firmware_arm: ${{ format('{0}/{1}/px4/firmware@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.px4-firmware-arm) }}
+      px4_gazebo: ${{ format('{0}/{1}/px4/gazebo@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.px4-gazebo) }}
+      px4_gazebo_arm: ${{ format('{0}/{1}/px4/gazebo@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.px4-gazebo-arm) }}
+      ardupilot_firmware: ${{ format('{0}/{1}/ardupilot/firmware@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.ardupilot-firmware) }}
+      ardupilot_firmware_arm: ${{ format('{0}/{1}/ardupilot/firmware@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.ardupilot-firmware-arm) }}
+      ardupilot_gazebo: ${{ format('{0}/{1}/ardupilot/gazebo@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.ardupilot-gazebo) }}
+      ardupilot_gazebo_arm: ${{ format('{0}/{1}/ardupilot/gazebo@{2}', env.REGISTRY, env.NAMESPACE, steps.digests.outputs.ardupilot-gazebo-arm) }}
     env:
       GAZEBO_TAG:
       MULTICOSIM_TAG:
