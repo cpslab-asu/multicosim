@@ -56,6 +56,7 @@ dependencies = [
 [tool.hatch.envs.examples.scripts]
 quickstart = "python3 examples/quickstart.py"
 rover = "python3 examples/rover/src/test.py {args}"
+ardupilot = "python3 examples/ardupilot.py"
 
 [tool.hatch.envs.types]
 extra-dependencies = [
