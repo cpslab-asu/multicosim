@@ -3,7 +3,9 @@ from __future__ import annotations
 from enum import Enum
 from typing import Final
 
-from attrs import field, frozen
+from attrs import define, field, frozen
+
+from multicosim.docker.simulation import ContainerSimulation, ContainerSimulator
 
 from . import simulations as _sims
 from .__about__ import __version__
@@ -35,13 +37,6 @@ class Vehicle(Enum):
 
 
 @frozen()
-class ArduPilotOptions:
-    vehicle: Vehicle = field(default=Vehicle.COPTER)
-    frame: str = field(default="quad")
-    param_files: list[str] = field(factory=list)
-
-
-@frozen()
 class Start:
     vehicle: Vehicle = field()
     frame: str = field()
@@ -68,18 +63,19 @@ class Result:
     trajectory: list[State] = field()
 
 
-def _get_image(image: str):
-    if image == "" or image == None:
-        return "ghcr.io/cpslab-asu/multicosim/ardupilot/gazebo:harmonic"
-    else:
-        return image
+@frozen()
+class FirmwareOptions:
+    vehicle: Vehicle = field(default=Vehicle.COPTER)
+    frame: str = field(default="quad")
+    param_files: list[str] = field(factory=list)
+    image: str = field(default=f"ghcr.io/cpslab-asu/multicosim/ardupilot/firmware:{__version__}")
 
 
-class ArduPilotFirmwareNode(_sims.CommunicationNode[ArduPilotOptions, Result]):
-    def __init__(self, node: _fw.JointGazeboFirmwareNode[Start, Result]):
+class ArduPilotFirmwareNode(_sims.CommunicationNode[FirmwareOptions, Result]):
+    def __init__(self, node: ArduPilotGazeboNode):
         self._node = node
 
-    def send(self, msg: ArduPilotOptions) -> Result:
+    def send(self, msg: FirmwareOptions) -> Result:
         gazebo = self._node.gazebo
         firmware = self._node.firmware
         msg_ = Start(
@@ -98,89 +94,117 @@ class ArduPilotFirmwareNode(_sims.CommunicationNode[ArduPilotOptions, Result]):
         return self._node.firmware.stop()
 
 
-class ArduPilotGazeboComponent(_fw.JointGazeboFirmwareComponent):
-    def __init__(
-        self,
-        gazebo: _gz.GazeboConfig,
-        *,
-        name: str = "",
-        vehicle: Vehicle = Vehicle.NONE,
-        frame: str = "",
-        remove: bool = False,
-    ):
-        gz = _gz.GazeboConfig(
-            image=_get_image(gazebo.image),
-            template=gazebo.template,
-            world=gazebo.world,
-            backend=gazebo.backend,
-            step_size=gazebo.step_size,
-            name=gazebo.name,
-            remove=remove,
-        )
+@frozen()
+class Environment(_fw.Environment):
+    gazebo_host: str
 
-        command = "firmware "
 
-        if vehicle != Vehicle.NONE and frame != "":
-            command += f"run --vehicle {str(vehicle)} --frame {frame}"
-        else:
-            command += f"listen --port {PORT}"
+@define()
+class ArduPilotComponent(_sims.Component[Environment, _fw.FirmwareContainerNode[Start, Result]]):
+    image: str
+    vehicle: Vehicle
+    frame: str
+    param_files: list[str] = field(factory=list)
+    remove: bool = False
 
-        fw = _fw.FirmwareConfig(
+    def start(self, environment: Environment) -> _fw.FirmwareContainerNode[Start, Result]:
+        command = f"firmware run --vehicle {self.vehicle} --frame {self.frame} --gazebo-host {environment.gazebo_host}"
+
+        for param_file in self.param_files:
+            command += f" --param-file {param_file}"
+
+        component = _fw.FirmwareContainerComponent(
             image=f"ghcr.io/cpslab-asu/multicosim/ardupilot/firmware:{__version__}",
             command=command,
             port=PORT,
             message_type=Start,
             response_type=Result,
-            name=name,
             tty=True,
-            remove=remove,
-            monitor=True,  # Early exit from PX4 firmware should be an error
+            remove=self.remove,
         )
 
-        super().__init__(gz, fw)
+        return component.start(environment)
 
-    def start(self, environment: _fw.Environment) -> _fw.JointGazeboFirmwareNode:
-        return _fw.JointGazeboFirmwareNode(
-            self.gazebo.start(environment),
-            self.firmware.start(environment),
-        )
+
+@define()
+class ArduPilotGazeboNode(_sims.Node):
+    gazebo: _gz.GazeboContainerNode
+    firmware: _fw.FirmwareContainerNode[Start, Result]
+
+    def stop(self):
+        self.firmware.stop()
+        self.gazebo.stop()
+
+
+class ArduPilotGazeboComponent(_sims.Component[_fw.Environment, ArduPilotGazeboNode]):
+    """Component to handle sequencing of ArduPilot start-up.
+
+    The ArduPilot firmware component needs to have access to the already-running Gazebo component
+    in order to properly set the sim-host parameter for the firmware to communicate. To support
+    this, we start the Gazebo container first, and then provide an augmented environment to the
+    firmware component that contains the name of the Gazebo container.
+
+    Args:
+        gazebo: The gazebo component
+        firmare: The ArduPilot firmware component
+    """
+
+    def __init__(self, gazebo: _gz.GazeboContainerComponent, firmware: ArduPilotComponent):
+        self.gazebo = gazebo
+        self.firmware = firmware
+
+    def start(self, environment: _fw.Environment) -> ArduPilotGazeboNode:
+        gz = self.gazebo.start(environment)
+        env_ext = Environment(environment.client, environment.network_name, gz.node.name())
+        fw = self.firmware.start(env_ext)
+
+        return ArduPilotGazeboNode(gz, fw)
 
 
 class Simulation(_sims.Simulation):
-    def __init__(self, simulation: _fw.GazeboFirmwareSimulation):
+    def __init__(self, simulation: ContainerSimulation, node_id: _sims.NodeId[ArduPilotGazeboNode]):
         self.inner = simulation
+        self.node = self.inner.get(node_id)
 
     @property
     def gazebo(self) -> _gz.GazeboContainerNode:
-        return self.inner.gazebo
+        return self.node.gazebo
 
     @property
     def firmware(self) -> ArduPilotFirmwareNode:
-        return ArduPilotFirmwareNode(self.inner.simulation.get(self.inner.node_id))
+        return ArduPilotFirmwareNode(self.node)
 
     def stop(self):
         return self.inner.stop()
 
 
+@frozen()
+class GazeboOptions:
+    image: str = "ghcr.io/cpslab-asu/multicosim/ardupilot/gazebo:harmonic"
+    world: str = "/app/resources/worlds/iris_runway.sdf"
+
+
 class Simulator(_sims.Simulator[_fw.Environment, Simulation]):
-    def __init__(
-        self,
-        gazebo: _gz.GazeboConfig,
-        *,
-        name: str = "",
-        vehicle: Vehicle = Vehicle.NONE,
-        frame: str = "",
-        remove: bool = False,
-    ):
-        self.component = ArduPilotGazeboComponent(
-            gazebo=gazebo,
-            name=name,
-            vehicle=vehicle,
-            frame=frame,
+    def __init__(self, gazebo: GazeboOptions, firmware: FirmwareOptions, *, remove: bool = False):
+        gazebo_ = _gz.GazeboContainerComponent(
+            image=gazebo.image,
+            template=gazebo.world,
             remove=remove,
         )
-        self.simulator = _fw.GazeboFirmwareSimulator(self.component)
+
+        firmware_ = ArduPilotComponent(
+            image=firmware.image,
+            vehicle=firmware.vehicle,
+            frame=firmware.frame,
+            param_files=firmware.param_files,
+        )
+
+        self.simulator = ContainerSimulator()
+        self.node_id = self.simulator.add(ArduPilotGazeboComponent(gazebo_, firmware_))
+
+    def add(self, component: _sims.Component[_fw.Environment, _sims.NodeT]) -> _sims.NodeId[_sims.NodeT]:
+        return self.simulator.add(component)
 
     def start(self) -> Simulation:
-        return Simulation(self.simulator.start())
+        return Simulation(self.simulator.start(), self.node_id)
 
