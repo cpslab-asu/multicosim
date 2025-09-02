@@ -7,7 +7,7 @@ import docker
 import nanoid
 from typing_extensions import override
 
-from ..simulations import Component, Node, NodeId, Simulation, Simulator
+from ..simulations import Component, MultiComponentSimulator, Node, NodeId, Simulation, Simulator
 
 NodeT = TypeVar("NodeT", bound=Node)
 
@@ -49,7 +49,7 @@ def _generate_network_name() -> str:
     return network_name
 
 
-class ContainerSimulator(Simulator[Environment, ContainerSimulation]):
+class ContainerSimulator(MultiComponentSimulator[Environment, ContainerSimulation]):
     """A tree of components representing a simulator for a given system using Docker containers.
 
     Args:
