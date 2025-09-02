@@ -81,6 +81,12 @@ class ContainerNode(Node):
 
         return _get_host_port(self.container, container_port, protocol=protocol)
 
+    def name(self) -> str:
+        while self.container.name is None:
+            self.container.reload()
+
+        return self.container.name
+
     def stop(self):
         self.container.stop(timeout=10)
         self.container.wait()
@@ -164,6 +170,9 @@ class ReporterNode(CommunicationNode[object, object]):
     def __init__(self, node: ContainerNode, port: int):
         self.node = node
         self.host_port = port
+
+    def name(self) -> str:
+        return self.node.name()
 
     def send(self, msg: object) -> object:
         """Send a message to the node and return its response.
