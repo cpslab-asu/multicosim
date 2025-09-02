@@ -204,6 +204,7 @@ class FirmwareConfig(Generic[MsgT, DataT]):
                 "remove" : self.remove,
                 "monitor" : self.monitor}
 
+
 @attrs.define()
 class JointGazeboFirmwareNode(CommunicationNode[MsgT, ResultT]):
     gazebo: GazeboContainerNode
@@ -229,6 +230,7 @@ class JointGazeboFirmwareComponent(Component[Environment, JointGazeboFirmwareNod
             self.firmware.start(environment),
         )
 
+
 @attrs.define()
 class GazeboFirmwareSimulation(Simulation):
     simulation: ContainerSimulation
@@ -249,12 +251,14 @@ class GazeboFirmwareSimulation(Simulation):
     def stop(self):
         return self.simulation.stop()
     
+
 class GazeboFirmwareSimulator(Simulator[Environment, GazeboFirmwareSimulation]):
     """A simulator tree representing a simulation using a firmware that utilizes gazebo and acts as the system controller.
 
     Args:
         gazebo: The gazebo component to use for simulation
     """
+
     def __init__(self, fwcomponent: JointGazeboFirmwareComponent):
         self.simulator = ContainerSimulator()
         self.fwcomponent = fwcomponent
