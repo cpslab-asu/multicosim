@@ -53,8 +53,11 @@ SimT = TypeVar("SimT", bound=Simulation, covariant=True)
 class Simulator(Protocol[EnvT_co, SimT]):
     """A tree of components representing the system to be simulated."""
 
+    def start(self) -> SimT:
+        ...
+
+
+class MultiComponentSimulator(Simulator[EnvT_co, SimT]):
     def add(self, component: Component[EnvT_co, NodeT]) -> NodeId[NodeT]:
         ...
 
-    def start(self) -> SimT:
-        ...
