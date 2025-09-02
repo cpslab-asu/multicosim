@@ -150,7 +150,7 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
     def __init__(
         self,
         image: str = "ghcr.io/cpslab-asu/multicosim/gazebo:harmonic",
-        template: str = "/app/resources/worlds/empty.sdf",
+        template: str = "/app/resources/worlds/default.sdf",
         model_dir: Path = Path("/app/resources/models"),    
         world: str = "generated",
         backend: Backend | None = None,
