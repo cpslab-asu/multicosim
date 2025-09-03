@@ -34,5 +34,8 @@ COPY --from=build /src/ardupilot_gazebo/worlds ./resources/worlds/
 COPY --from=build /src/ardupilot_gazebo/models ./resources/models/
 COPY --from=build /src/ardupilot_gazebo/build/*.so ./plugins/
 
+# Set plugin host binding address to network to allow incoming connections from other containers
+RUN sed --in-place=.orig "s/127.0.0.1/0.0.0.0/" ./resources/models/iris_with_ardupilot/model.sdf
+
 ENV GZ_SIM_SYSTEM_PLUGIN_PATH=${GZ_ROOT}/plugins
 ENV GZ_SIM_RESOURCE_PATH=${GZ_ROOT}/resources/models:${GZ_ROOT}/resources/worlds
