@@ -7,17 +7,13 @@ from typing import Final, TypeVar
 import attrs
 from typing_extensions import override
 
+from . import simulations as _sims
 from .__about__ import __version__
-from .docker.firmware import (
-    FirmwareConfig,
-    FirmwareContainerNode,
-    GazeboFirmwareSimulator,
-    JointGazeboFirmwareComponent,
-    JointGazeboFirmwareNode,
-)
-from .docker.gazebo import BaseGazeboConfig, GazeboContainerNode
-from .docker.gazebo import GazeboConfig as _GazeboConfig
-from .docker.simulation import Environment
+from .docker import firmware as _fw
+from .docker import gazebo as _gz
+from .docker import simulation as _sim
+
+PORT: Final[int] = 5556
 
 
 class Vehicle(IntEnum):
@@ -62,9 +58,6 @@ class State:
     pose: Pose
 
 
-PORT: Final[int] = 5556
-
-
 def _mission(waypoints: Iterable[Waypoint]) -> list[Waypoint]:
     return list(waypoints)
 
@@ -100,11 +93,11 @@ class PX4Configuration:
         self.world = world
 
 
-class PX4Node(JointGazeboFirmwareNode[Configuration, States]):
+class PX4Node(_fw.JointGazeboFirmwareNode[Configuration, States]):
     def __init__(
         self,
-        gazebo_node: GazeboContainerNode,
-        fw_node: FirmwareContainerNode[PX4Configuration, States],
+        gazebo_node: _gz.GazeboContainerNode,
+        fw_node: _fw.FirmwareContainerNode[PX4Configuration, States],
         vehicle: Vehicle,
         world: str,
     ):
@@ -117,7 +110,7 @@ class PX4Node(JointGazeboFirmwareNode[Configuration, States]):
         return self.firmware.send(PX4Configuration(msg, self._vehicle, self._world))
 
 @attrs.define()
-class GazeboConfig(BaseGazeboConfig):
+class GazeboConfig(_gz.BaseGazeboConfig):
     sensor_topics: Mapping[str, str] = attrs.field(factory=dict)
 
 
@@ -146,11 +139,15 @@ def _create_sensor_topics(gazebo: GazeboConfig, vehicle: Vehicle):
     return [(model, data[1], data[2]) for data in gazebo.sensor_topics]
 
 
-class PX4Component(JointGazeboFirmwareComponent):
+class PX4Component(_fw.JointGazeboFirmwareComponent):
     def __init__(
-        self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False
+        self,
+        gazebo: GazeboConfig,
+        vehicle: Vehicle = Vehicle.X500,
+        *,
+        remove: bool = False,
     ):
-        gz = _GazeboConfig(
+        gz = GazeboConfig(
             image="ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic",
             template=f"/app/resources/worlds/{gazebo.world}.sdf",
             sensor_topics=_create_sensor_topics(gazebo, vehicle),
@@ -159,7 +156,7 @@ class PX4Component(JointGazeboFirmwareComponent):
             remove=remove,
         )
 
-        fw = FirmwareConfig(
+        fw = _fw.FirmwareConfig(
             image=f"ghcr.io/cpslab-asu/multicosim/px4/firmware:{__version__}",
             command=f"firmware --port {DEFAULT_PORT}",
             port=DEFAULT_PORT,
@@ -172,7 +169,7 @@ class PX4Component(JointGazeboFirmwareComponent):
         super().__init__(gz, fw)
         self.vehicle = vehicle
 
-    def start(self, environment: Environment) -> PX4Node:
+    def start(self, environment: _fw.Environment) -> PX4Node:
         return PX4Node(
             self.gazebo.start(environment),
             self.firmware.start(environment),
@@ -181,8 +178,49 @@ class PX4Component(JointGazeboFirmwareComponent):
         )
 
 
-class PX4(GazeboFirmwareSimulator):
+class Simulation(_sims.Simulation):
     def __init__(
-        self, gazebo: GazeboConfig, vehicle: Vehicle = Vehicle.X500, *, remove: bool = False
+        self,
+        sim: _sim.ContainerSimulation,
+        gz_id: _sims.NodeId[_gz.GazeboContainerNode],
+        fw_id: _sims.NodeId[_fw.FirmwareContainerNode],
     ):
-        super().__init__(PX4Component(gazebo, vehicle, remove=remove))
+        self.sim = sim
+        self.gz_node = sim.get(gz_id)
+        self.fw_node = sim.get(fw_id)
+
+    @property
+    def gazebo(self) -> _gz.GazeboContainerNode:
+        return self.gz_node
+
+    @property
+    def firmware(self) -> _fw.FirmwareContainerNode:
+        return self.fw_node
+
+    def stop(self):
+        return self.sim.stop()
+
+
+@attrs.define()
+class FirmwareOptions:
+    pass
+
+
+class Simulator(_sims.MultiComponentSimulator[_fw.Environment, Simulation]):
+    def __init__(
+        self,
+        gazebo: GazeboConfig,
+        firmware: FirmwareOptions,
+    ):
+        gazebo_ = _gz.GazeboContainerComponent()
+        firmware_ = _fw.FirmwareContainerComponent()
+
+        self.simulator = _sim.ContainerSimulator()
+        self.gz_id = self.simulator.add(gazebo_)
+        self.fw_id = self.simulator.add(firmware_)
+
+    def add(self, component: _sims.Component[_fw.Environment, _sims.NodeT]) -> _sims.NodeId[_sims.NodeT]:
+        return self.simulator.add(component)
+
+    def start(self) -> Simulation:
+        return Simulation(self.simulator.start(), self.gz_id, self.fw_id)

@@ -7,7 +7,7 @@ import attrs
 import zmq
 from typing_extensions import override
 
-from ..simulations import CommunicationNode, Component, NodeId, Simulation, Simulator
+from ..simulations import CommunicationNode, Component, NodeId, Simulation, MultiComponentSimulator
 from .component import ReporterComponent, ReporterNode
 from .gazebo import GazeboConfig, GazeboContainerComponent, GazeboContainerNode
 from .simulation import ContainerSimulation, ContainerSimulator, Environment, NodeT
@@ -218,11 +218,10 @@ class JointGazeboFirmwareNode(CommunicationNode[MsgT, ResultT]):
         self.firmware.stop()
 
 
-class JointGazeboFirmwareComponent(Component[Environment, JointGazeboFirmwareNode]):
-    def __init__(self, gazebo: GazeboConfig, fw: FirmwareConfig):
-        self.port = fw.port
-        self.gazebo = GazeboContainerComponent(**(gazebo.params()))
-        self.firmware = FirmwareContainerComponent(**(fw.params()))
+@attrs.define()
+class JointGazeboFirmwareComponent(Component[Environment, JointGazeboFirmwareNode], Generic[MsgT, ResultT]):
+    gazebo: GazeboContainerComponent
+    firmware: FirmwareContainerComponent[MsgT, ResultT]
 
     def start(self, environment: Environment) -> JointGazeboFirmwareNode:
         return JointGazeboFirmwareNode(
@@ -232,15 +231,15 @@ class JointGazeboFirmwareComponent(Component[Environment, JointGazeboFirmwareNod
 
 
 @attrs.define()
-class GazeboFirmwareSimulation(Simulation):
+class GazeboFirmwareSimulation(Simulation, Generic[MsgT, ResultT]):
     simulation: ContainerSimulation
-    node_id: NodeId[JointGazeboFirmwareNode]
+    node_id: NodeId[JointGazeboFirmwareNode[MsgT, ResultT]]
 
     @property
-    def firmware(self) -> FirmwareContainerNode:
+    def firmware(self) -> FirmwareContainerNode[MsgT, ResultT]:
         """The simulation node of the executing firmware."""
 
-        return self.simulation.get(self.node_id)
+        return self.simulation.get(self.node_id).firmware
 
     @property
     def gazebo(self) -> GazeboContainerNode:
@@ -252,21 +251,17 @@ class GazeboFirmwareSimulation(Simulation):
         return self.simulation.stop()
     
 
-class GazeboFirmwareSimulator(Simulator[Environment, GazeboFirmwareSimulation]):
+class GazeboFirmwareSimulator(MultiComponentSimulator[Environment, GazeboFirmwareSimulation[MsgT, ResultT]]):
     """A simulator tree representing a simulation using a firmware that utilizes gazebo and acts as the system controller.
 
     Args:
         gazebo: The gazebo component to use for simulation
     """
 
-    def __init__(self, fwcomponent: JointGazeboFirmwareComponent):
+    def __init__(self, component: JointGazeboFirmwareComponent[MsgT, ResultT]):
         self.simulator = ContainerSimulator()
-        self.fwcomponent = fwcomponent
-        self.node_id = self.simulator.add(self.fwcomponent)
-
-    @property
-    def component(self) -> JointGazeboFirmwareComponent:
-        return self.fwcomponent
+        self.component = component
+        self.node_id = self.simulator.add(self.component)
 
     @property
     def gazebo(self) -> GazeboContainerComponent:
