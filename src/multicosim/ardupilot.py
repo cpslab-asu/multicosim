@@ -114,7 +114,7 @@ class ArduPilotComponent(_sims.Component[Environment, _fw.FirmwareContainerNode[
             command += f" --param-file {param_file}"
 
         component = _fw.FirmwareContainerComponent(
-            image=f"ghcr.io/cpslab-asu/multicosim/ardupilot/firmware:{__version__}",
+            image=self.image,
             command=command,
             port=PORT,
             message_type=Start,
