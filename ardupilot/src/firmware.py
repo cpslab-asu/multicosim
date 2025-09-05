@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import pathlib
 import signal
-import socket
 import subprocess
 import typing
 
@@ -14,13 +13,13 @@ if typing.TYPE_CHECKING:
 import click
 
 import multicosim.ardupilot as ap
-import multicosim.docker.firmware as fw
 
 
 def run_ardupilot(
     vehicle: ap.Vehicle,
     frame: str,
-    gazebo_host: str,
+    gazebo_host: str | None,
+    gcs_host: str | None,
     param_files: list[pathlib.Path],
 ):
     logger = logging.getLogger("ardupilot.firmware.run")
@@ -41,8 +40,13 @@ def run_ardupilot(
         case _:
             raise Exception("Invalid ardupilot vehicle type!")
 
-    firmware_host = socket.gethostname()
-    sim_cmd += f"-f {frame} --model JSON --sim-address={gazebo_host} --out=tcpin:{firmware_host}:14551"
+    sim_cmd += f"-f {frame} --model JSON"
+
+    if gazebo_host is not None:
+        sim_cmd += f"--sim-address={gazebo_host}"
+
+    if gcs_host is not None:
+        sim_cmd += f"--out=tcpin:{gcs_host}:14551"
 
     for pfile in param_files:
         if not pfile.exists():
@@ -58,19 +62,18 @@ def run_ardupilot(
 def start_ardupilot(
     vehicle: ap.Vehicle,
     frame: str,
-    gazebo_host: str,
+    gazebo_host: str | None,
+    gcs_host: str | None,
     param_files: list[pathlib.Path],
 ):
     logger = logging.getLogger("ardupilot.firmware")
     logger.addHandler(logging.NullHandler())
 
-    process = run_ardupilot(vehicle, frame, gazebo_host, param_files)
+    process = run_ardupilot(vehicle, frame, gazebo_host, gcs_host, param_files)
 
     def shutdown():
         process.kill()
         process.wait()
-
-        return ap.Result()
 
     def handle(signum: int, frame: FrameType | None):
         logger.info("Gracefully shutting down!")
@@ -88,14 +91,22 @@ def start_ardupilot(
     logger.info("Process terminated with code: %d", process.poll())
 
 
-@fw.firmware(msgtype=ap.Start)
-def server(msg: ap.Start) -> ap.Result:
-    return start_ardupilot(msg.vehicle, msg.frame, msg.gazebo_host, [pathlib.Path(p) for p in msg.param_files])
-
-
-@click.group()
+@click.command("firmware")
+@click.option("--vehicle", type=click.Choice(ap.Vehicle, case_sensitive=False), default=ap.Vehicle.COPTER)
+@click.option("--frame", type=str, default="quad")
+@click.option("--gazebo-host", type=str)
+@click.option("--gcs-host", type=str)
+@click.option("--param-file", type=click.Path(dir_okay=False, path_type=pathlib.Path), multiple=True)
 @click.option("--verbose", is_flag=True)
-def firmware(*, verbose: bool):
+def firmware(
+    vehicle: ap.Vehicle,
+    frame: str,
+    gazebo_host: str | None,
+    gcs_host: str | None,
+    param_file: Sequence[pathlib.Path],
+    *,
+    verbose: bool,
+):
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
     )
@@ -104,20 +115,7 @@ def firmware(*, verbose: bool):
     logger.addHandler(logging.NullHandler())
     logger.info(f"Debug output enabled: {verbose}")
 
-
-@firmware.command()
-@click.option("--vehicle", type=click.Choice(ap.Vehicle, case_sensitive=False), default=ap.Vehicle.COPTER)
-@click.option("--frame", type=str, default="quad")
-@click.option("--gazebo-host", type=str)
-@click.option("--param-file", type=click.Path(dir_okay=False, path_type=pathlib.Path), multiple=True)
-def run(vehicle: ap.Vehicle, frame: str, gazebo_host: str, param_file: Sequence[pathlib.Path]):
-    start_ardupilot(vehicle, frame, gazebo_host, list(param_file))
-
-
-@firmware.command()
-@click.option("--port", type=int, default=5556)
-def listen(port: int):
-    server.listen(port)
+    start_ardupilot(vehicle, frame, gazebo_host, gcs_host, list(param_file))
 
 
 if __name__ == "__main__":
