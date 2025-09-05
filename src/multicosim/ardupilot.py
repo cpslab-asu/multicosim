@@ -97,6 +97,7 @@ class ArduPilotFirmwareNode(_sims.CommunicationNode[FirmwareOptions, Result]):
 @frozen()
 class Environment(_fw.Environment):
     gazebo_host: str
+    gcs_host: str | None = None
 
 
 @define()
@@ -108,10 +109,13 @@ class ArduPilotComponent(_sims.Component[Environment, _fw.FirmwareContainerNode[
     remove: bool = False
 
     def start(self, environment: Environment) -> _fw.FirmwareContainerNode[Start, Result]:
-        command = f"firmware run --vehicle {self.vehicle} --frame {self.frame} --gazebo-host {environment.gazebo_host}"
+        command = f"firmware --vehicle {self.vehicle} --frame {self.frame} --gazebo-host {environment.gazebo_host}"
 
         for param_file in self.param_files:
             command += f" --param-file {param_file}"
+
+        if environment.gcs_host is not None:
+            command += f" --gcs-host {environment.gcs_host}"
 
         component = _fw.FirmwareContainerComponent(
             image=self.image,
