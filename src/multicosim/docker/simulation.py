@@ -1,13 +1,16 @@
 from collections.abc import Mapping
 from re import match
-from typing import TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 
 import attrs
 import docker
 import nanoid
 from typing_extensions import override
 
-from ..simulations import Component, MultiComponentSimulator, Node, NodeId, Simulation, Simulator
+if TYPE_CHECKING:
+    from docker.models.networks import Network as _DockerNetwork
+
+from ..simulations import Component, MultiComponentSimulator, Node, NodeId, Simulation
 
 NodeT = TypeVar("NodeT", bound=Node)
 
@@ -25,6 +28,8 @@ class ContainerSimulation(Simulation):
     """
 
     nodes: dict[NodeId, Node] = attrs.field(converter=_nodes)
+    network: _DockerNetwork = attrs.field()
+    remove_network: bool = attrs.field(default=False)
 
     def get(self, node_id: NodeId[NodeT]) -> NodeT:
         return cast(NodeT, self.nodes[node_id])
@@ -32,6 +37,9 @@ class ContainerSimulation(Simulation):
     def stop(self):
         for node in self.nodes.values():
             node.stop()
+
+        if self.remove_network:
+            self.network.remove()
 
 
 @attrs.frozen()
@@ -61,11 +69,12 @@ class ContainerSimulator(MultiComponentSimulator[Environment, ContainerSimulatio
         components: A mapping of components and their unique identifiers
     """
 
-    def __init__(self, *components: Component[Environment, Node]):
+    def __init__(self, *components: Component[Environment, Node], remove_network: bool = True):
         client = docker.from_env()
         network_name = _generate_network_name()
 
         self.network = client.networks.create(network_name)
+        self.rm_network = remove_network
         self.env = Environment(client, network_name)
         self.components = {
             NodeId(): component for component in components
@@ -93,4 +102,4 @@ class ContainerSimulator(MultiComponentSimulator[Environment, ContainerSimulatio
             for node_id, component in self.components.items()
         }
 
-        return ContainerSimulation(nodes)
+        return ContainerSimulation(nodes, self.network, self.rm_network)
