@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from re import match
 from typing import TYPE_CHECKING, TypeVar, cast
