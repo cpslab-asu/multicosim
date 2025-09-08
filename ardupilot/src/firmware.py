@@ -43,10 +43,10 @@ def run_ardupilot(
     sim_cmd += f"-f {frame} --model JSON"
 
     if gazebo_host is not None:
-        sim_cmd += f"--sim-address={gazebo_host}"
+        sim_cmd += f" --sim-address={gazebo_host}"
 
     if gcs_host is not None:
-        sim_cmd += f"--out=tcpin:{gcs_host}:14551"
+        sim_cmd += f" --out=udpout:{gcs_host}:14551"
 
     for pfile in param_files:
         if not pfile.exists():
