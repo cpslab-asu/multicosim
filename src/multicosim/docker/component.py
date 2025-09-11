@@ -65,6 +65,13 @@ class ContainerError(Exception):
     pass
 
 
+class ContainerStatusError(ContainerError):
+    def __init__(self, actual: str, expected: str):
+        super().__init__(
+            f"Unexpected container status <{actual}>, expected <{expected}> after waiting"
+        )
+
+
 @attrs.define()
 class ContainerNode(Node):
     """A single component in the simulation tree running in a docker container.
@@ -96,7 +103,7 @@ class ContainerNode(Node):
         self.container.reload()
 
         if not self.container.status == "exited":
-            raise ContainerError(f"Unexpected container status {self.container.status}, expected 'exited' after waiting")
+            raise ContainerStatusError(self.container.status, "exited")
 
         if self.remove:
             self.container.remove()
@@ -108,7 +115,6 @@ class ContainerNode(Node):
             self.container.stop()
 
         self.container.remove()
-
 
 
 class MonitoredContainerError(Exception):
