@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from re import match
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast, runtime_checkable
 
 import attrs
 import docker
@@ -19,6 +19,12 @@ NodeT = TypeVar("NodeT", bound=Node)
 
 def _nodes(nodes: Mapping[NodeId, Node]) -> dict[NodeId, Node]:
     return dict(nodes)
+
+
+@runtime_checkable
+class SupportsRemove(Node):
+    def remove(self):
+        ...
 
 
 @attrs.define()
@@ -42,6 +48,13 @@ class ContainerSimulation(Simulation):
 
         if self.remove_network:
             self.network.remove()
+
+    def remove(self):
+        for node in self.nodes.values():
+            if isinstance(node, SupportsRemove):
+                node.remove()
+
+        self.network.remove()
 
 
 @attrs.frozen()
