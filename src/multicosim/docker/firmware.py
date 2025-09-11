@@ -255,6 +255,10 @@ class GazeboFirmwareSimulation(Simulation, Generic[MsgT, ResultT]):
 
     def stop(self):
         return self.simulation.stop()
+
+    def remove(self):
+        self.simulation.remove()
+
     
 
 class GazeboFirmwareSimulator(MultiComponentSimulator[Environment, GazeboFirmwareSimulation[MsgT, ResultT]]):
