@@ -147,14 +147,22 @@ class MonitoredContainerNode(ContainerNode):
         super().stop()
 
 
+Ports: TypeAlias = dict[int, Literal["tcp", "udp"]]
+
+
 @attrs.define()
-class ContainerComponent(Component[Environment, ContainerNode]):
+class ContainerComponentOptions:
     image: str = attrs.field()
     command: str = attrs.field()
-    ports: dict[int, Literal["tcp", "udp"]] = attrs.field(factory=dict)
+    ports: Ports = attrs.field()
     name: str = attrs.field(default="", kw_only=True)
     tty: bool = attrs.field(default=False, kw_only=True)
     monitor: bool = attrs.field(default=False, kw_only=True)
+
+
+@attrs.define()
+class ContainerComponent(ContainerComponentOptions, Component[Environment, ContainerNode]):
+    ports: Ports = attrs.Factory(dict)  # Make ports optional for container component
 
     def start(self, environment: Environment) -> ContainerNode:
         container = environment.client.containers.run(
@@ -228,13 +236,12 @@ class ReporterNode(CommunicationNode[Any, Any]):
 
 
 @attrs.define()
-class ReporterComponent(Component[Environment, ReporterNode]):
-    image: str = attrs.field()
-    command: str = attrs.field()
-    port: int = attrs.field()
-    name: str = attrs.field(default="", kw_only=True)
-    tty: bool = attrs.field(default=False, kw_only=True)
-    monitor: bool = attrs.field(default=False, kw_only=True)
+class ReporterComponent(ContainerComponentOptions, Component[Environment, ReporterNode]):
+    ports: Ports = attrs.field(init=False)  # Remove ports from init argument
+    port: int = attrs.field()  # Add port argument that will be converted into ports
+
+    def __attrs_post_init__(self):
+        self.ports = {self.port: "tcp"}
 
     def start(self, environment: Environment) -> ReporterNode:
         component = ContainerComponent(
