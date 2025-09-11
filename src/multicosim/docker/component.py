@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Generator, Iterable
 from contextlib import ExitStack, contextmanager
 from threading import Event, Thread
-from typing import TYPE_CHECKING, Literal, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeVar
 from warnings import warn
 
 import attrs
@@ -180,7 +180,7 @@ class ContainerComponent(Component[Environment, ContainerNode]):
 
 
 @attrs.define()
-class ReporterNode(CommunicationNode[object, object]):
+class ReporterNode(CommunicationNode[Any, Any]):
     """A simulation node that is responsible for returning data after the simulation.
 
     Args:
@@ -199,7 +199,7 @@ class ReporterNode(CommunicationNode[object, object]):
     def name(self) -> str:
         return self.node.name()
 
-    def send(self, msg: object) -> object:
+    def send(self, msg: Any) -> Any:
         """Send a message to the node and return its response.
 
         Args:
