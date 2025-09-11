@@ -128,8 +128,7 @@ def _extract_response_data(response: object, data_type: type[DataT]) -> DataT:
 
 
 @attrs.define()
-class FirmwareContainerNode(CommunicationNode[MsgT, DataT]):
-    node: ReporterNode
+class FirmwareContainerNode(ReporterNode, CommunicationNode[MsgT, DataT]):
     message_type: type[MsgT]
     response_type: type[DataT]
 
@@ -138,18 +137,11 @@ class FirmwareContainerNode(CommunicationNode[MsgT, DataT]):
         if not isinstance(msg, self.message_type):
             raise TypeError(f"Unsupported message type {type(msg)}, expected {self.message_type}")
 
-        return _extract_response_data(self.node.send(msg), self.response_type)
-
-    @override
-    def stop(self):
-        self.node.stop()
-
-    def remove(self):
-        self.node.remove()
+        return _extract_response_data(super().send(msg), self.response_type)
 
 
 @attrs.define()
-class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[MsgT, DataT]]):
+class FirmwareContainerComponent(ReporterComponent, Component[Environment, FirmwareContainerNode[MsgT, DataT]]):
     """A component representing the firmware/controller of a system.
 
     Args:
@@ -158,26 +150,16 @@ class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[Ms
         port: The port to use for communication with the controller
     """
 
-    def __init__(
-        self,
-        image: str,
-        command: str,
-        port: int,
-        message_type: type[MsgT],
-        response_type: type[DataT],
-        *,
-        name: str = "",
-        tty: bool = False,
-        monitor: bool = False,
-    ):
-        self.component = ReporterComponent(image, command, port, tty=tty, name=name, monitor=monitor)
-        self.message_type = message_type
-        self.response_type = response_type
+    message_type: type[MsgT] = attrs.field(kw_only=True)
+    response_type: type[DataT] = attrs.field(kw_only=True)
 
     @override
     def start(self, environment: Environment) -> FirmwareContainerNode[MsgT, DataT]:
+        node = super().start(environment)
+
         return FirmwareContainerNode(
-            self.component.start(environment),
+            node.node,
+            node.host_port,
             self.message_type,
             self.response_type,
         )
