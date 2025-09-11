@@ -61,6 +61,10 @@ def _get_host_port(container: Container, port: int, *, protocol: PortProtocol = 
     raise ValueError("Could not find host port binding")
 
 
+class ContainerError(Exception):
+    pass
+
+
 @attrs.define()
 class ContainerNode(Node):
     """A single component in the simulation tree running in a docker container.
@@ -89,6 +93,10 @@ class ContainerNode(Node):
     def stop(self):
         self.container.stop(timeout=10)
         self.container.wait()
+        self.container.reload()
+
+        if not self.container.status == "exited":
+            raise ContainerError(f"Unexpected container status {self.container.status}, expected 'exited' after waiting")
 
         if self.remove:
             self.container.remove()
