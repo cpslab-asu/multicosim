@@ -179,6 +179,7 @@ class ContainerComponent(Component[Environment, ContainerNode]):
         return ContainerNode(container)
 
 
+@attrs.define()
 class ReporterNode(CommunicationNode[object, object]):
     """A simulation node that is responsible for returning data after the simulation.
 
@@ -188,9 +189,12 @@ class ReporterNode(CommunicationNode[object, object]):
         remove: Flag indicating if the container should be removed at completion
     """
 
-    def __init__(self, node: ContainerNode, port: int):
-        self.node = node
-        self.host_port = port
+    node: ContainerNode = attrs.field()
+    host_port: int = attrs.field(alias="port")
+
+    @property
+    def container(self) -> Container:
+        return self.node.container
 
     def name(self) -> str:
         return self.node.name()
@@ -223,20 +227,25 @@ class ReporterNode(CommunicationNode[object, object]):
         self.node.remove()
 
 
+@attrs.define()
 class ReporterComponent(Component[Environment, ReporterNode]):
-    def __init__(self, image: str, command: str, port: int, *, tty: bool = False, name: str = "", monitor: bool = False):
-        self.component = ContainerComponent(
-            image,
-            command,
-            ports={port: "tcp"},
-            tty=tty,
-            name=name,
-            monitor=monitor,
-        )
-        self.port = port
+    image: str = attrs.field()
+    command: str = attrs.field()
+    port: int = attrs.field()
+    name: str = attrs.field(default="", kw_only=True)
+    tty: bool = attrs.field(default=False, kw_only=True)
+    monitor: bool = attrs.field(default=False, kw_only=True)
 
     def start(self, environment: Environment) -> ReporterNode:
-        node = self.component.start(environment)
+        component = ContainerComponent(
+            image=self.image,
+            command=self.command,
+            ports={self.port: "tcp"},
+            name=self.name,
+            tty=self.tty,
+            monitor=self.monitor,
+        )
+        node = component.start(environment)
         port = node.host_port(self.port)
 
         return ReporterNode(node, port)
