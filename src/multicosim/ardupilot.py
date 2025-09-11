@@ -124,7 +124,6 @@ class ArduPilotComponent(_sims.Component[Environment, _fw.FirmwareContainerNode[
             message_type=Start,
             response_type=Result,
             tty=True,
-            remove=self.remove,
         )
 
         return component.start(environment)
@@ -181,6 +180,9 @@ class Simulation(_sims.Simulation):
     def stop(self):
         return self.inner.stop()
 
+    def remove(self):
+        self.inner.remove()
+
 
 @frozen()
 class GazeboOptions:
@@ -189,11 +191,10 @@ class GazeboOptions:
 
 
 class Simulator(_sims.Simulator[_fw.Environment, Simulation]):
-    def __init__(self, gazebo: GazeboOptions, firmware: FirmwareOptions, *, remove: bool = False):
+    def __init__(self, gazebo: GazeboOptions, firmware: FirmwareOptions):
         gazebo_ = _gz.GazeboContainerComponent(
             image=gazebo.image,
             template=gazebo.world,
-            remove=remove,
         )
 
         firmware_ = ArduPilotComponent(
