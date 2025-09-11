@@ -71,7 +71,6 @@ class ContainerNode(Node):
     """
 
     container: Container = attrs.field()
-    remove: bool = attrs.field(kw_only=True, default=True)
 
     def host_port(self, container_port: int, protocol: PortProtocol = "tcp") -> int:
         key = f"{container_port}/{protocol}"
@@ -93,6 +92,15 @@ class ContainerNode(Node):
 
         if self.remove:
             self.container.remove()
+
+    def remove(self):
+        self.container.reload()
+
+        if self.container.status != "exited":
+            self.container.stop()
+
+        self.container.remove()
+
 
 
 class MonitoredContainerError(Exception):
@@ -132,7 +140,6 @@ class ContainerComponent(Component[Environment, ContainerNode]):
     ports: dict[int, Literal["tcp", "udp"]] = attrs.field(factory=dict)
     name: str = attrs.field(default="", kw_only=True)
     tty: bool = attrs.field(default=False, kw_only=True)
-    remove: bool = attrs.field(default=True, kw_only=True)
     monitor: bool = attrs.field(default=False, kw_only=True)
 
     def start(self, environment: Environment) -> ContainerNode:
@@ -155,7 +162,7 @@ class ContainerComponent(Component[Environment, ContainerNode]):
             warn("Monitoring is not currently supported")
             # return MonitoredContainerNode(container, remove=self.remove)
 
-        return ContainerNode(container, remove=self.remove)
+        return ContainerNode(container)
 
 
 class ReporterNode(CommunicationNode[object, object]):
@@ -198,16 +205,18 @@ class ReporterNode(CommunicationNode[object, object]):
     def stop(self):
         return self.node.stop()
 
+    def remove(self):
+        self.node.remove()
+
 
 class ReporterComponent(Component[Environment, ReporterNode]):
-    def __init__(self, image: str, command: str, port: int, *, tty: bool = False, name: str = "", remove: bool = True, monitor: bool = False):
+    def __init__(self, image: str, command: str, port: int, *, tty: bool = False, name: str = "", monitor: bool = False):
         self.component = ContainerComponent(
             image,
             command,
             ports={port: "tcp"},
             tty=tty,
             name=name,
-            remove=remove,
             monitor=monitor,
         )
         self.port = port

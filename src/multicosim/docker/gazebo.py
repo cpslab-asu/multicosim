@@ -145,6 +145,9 @@ class GazeboContainerNode(Node):
     def stop(self):
         return self.node.stop()
 
+    def remove(self):
+        self.node.remove()
+
 
 class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
     def __init__(
@@ -159,7 +162,6 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         *,
         name: str = "",
         headless: bool = False,
-        remove: bool = False,
         monitor: bool = False,
     ):
         if not backend:
@@ -191,7 +193,6 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
             image=image,
             command=command,
             name=name,
-            remove=remove,
             monitor=monitor,
         )
 

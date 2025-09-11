@@ -144,6 +144,9 @@ class FirmwareContainerNode(CommunicationNode[MsgT, DataT]):
     def stop(self):
         self.node.stop()
 
+    def remove(self):
+        self.node.remove()
+
 
 @attrs.define()
 class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[MsgT, DataT]]):
@@ -165,10 +168,9 @@ class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[Ms
         *,
         name: str = "",
         tty: bool = False,
-        remove: bool = False,
         monitor: bool = False,
     ):
-        self.component = ReporterComponent(image, command, port, tty=tty, name=name, remove=remove, monitor=monitor)
+        self.component = ReporterComponent(image, command, port, tty=tty, name=name, monitor=monitor)
         self.message_type = message_type
         self.response_type = response_type
 
@@ -216,6 +218,10 @@ class JointGazeboFirmwareNode(CommunicationNode[MsgT, ResultT]):
     def stop(self):
         self.gazebo.stop()
         self.firmware.stop()
+
+    def remove(self):
+        self.gazebo.remove()
+        self.firmware.remove()
 
 
 @attrs.define()
