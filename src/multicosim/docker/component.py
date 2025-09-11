@@ -121,8 +121,8 @@ def _watch_container(container: Container, stop: Event):
 
 @attrs.define()
 class MonitoredContainerNode(ContainerNode):
-    def __init__(self, container: Container, *, remove: bool = False):
-        super().__init__(container, remove=remove)
+    def __init__(self, container: Container):
+        super().__init__(container)
         self.signal = Event()
         self.thread = Thread(target=_watch_container, args=(container, self.signal), daemon=True)
         self.thread.start()
