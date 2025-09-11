@@ -37,7 +37,6 @@ class ContainerSimulation(Simulation):
 
     nodes: dict[NodeId, Node] = attrs.field(converter=_nodes)
     network: _DockerNetwork = attrs.field()
-    remove_network: bool = attrs.field(default=False)
 
     def get(self, node_id: NodeId[NodeT]) -> NodeT:
         return cast(NodeT, self.nodes[node_id])
@@ -45,9 +44,6 @@ class ContainerSimulation(Simulation):
     def stop(self):
         for node in self.nodes.values():
             node.stop()
-
-        if self.remove_network:
-            self.network.remove()
 
     def remove(self):
         for node in self.nodes.values():
@@ -117,4 +113,4 @@ class ContainerSimulator(MultiComponentSimulator[Environment, ContainerSimulatio
             for node_id, component in self.components.items()
         }
 
-        return ContainerSimulation(nodes, self.network, self.rm_network)
+        return ContainerSimulation(nodes, self.network)
