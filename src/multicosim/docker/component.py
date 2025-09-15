@@ -2,22 +2,29 @@ from __future__ import annotations
 
 from collections.abc import Generator, Iterable
 from contextlib import ExitStack, contextmanager
-from threading import Event, Thread
+from threading import Event
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeVar
-from warnings import warn
 
 import attrs
 import zmq
 from typing_extensions import TypeAlias, override
 
 from ..simulations import CommunicationNode, Component, Node
-from .simulation import Environment
 
 if TYPE_CHECKING:
+    from docker import DockerClient
     from docker.models.containers import Container
+    from docker.models.networks import Network
 
 NodeT = TypeVar("NodeT", bound=Node)
 PortProtocol: TypeAlias = Literal["tcp", "udp"]
+Ports: TypeAlias = dict[int, PortProtocol]
+
+
+@attrs.frozen()
+class Environment:
+    client: DockerClient
+    network: Network
 
 
 @contextmanager
@@ -83,7 +90,7 @@ class ContainerNode(Node):
 
     container: Container = attrs.field()
 
-    def host_port(self, container_port: int, protocol: PortProtocol = "tcp") -> int:
+    def get_host_port(self, container_port: int, protocol: PortProtocol = "tcp") -> int:
         key = f"{container_port}/{protocol}"
 
         while len(self.container.ports[key]) == 0:
@@ -135,23 +142,18 @@ def _watch_container(container: Container, stop: Event):
 
 @attrs.define()
 class MonitoredContainerNode(ContainerNode):
-    def __init__(self, container: Container):
-        super().__init__(container)
-        self.signal = Event()
-        self.thread = Thread(target=_watch_container, args=(container, self.signal), daemon=True)
-        self.thread.start()
+    task: None
 
-    def stop(self):
-        self.signal.set()  # Set stop signal to terminate watcher thread
-        self.thread.join()  # Join thread to ensure termination before shutting down container
-        super().stop()
+    @classmethod
+    def from_node(cls, node: ContainerNode) -> MonitoredContainerNode:
+        container = node.container
+        task = None
 
-
-Ports: TypeAlias = dict[int, Literal["tcp", "udp"]]
+        return cls(container, task)
 
 
 @attrs.define()
-class ContainerComponentOptions:
+class ContainerOptions:
     image: str = attrs.field()
     command: str = attrs.field()
     ports: Ports = attrs.field()
@@ -159,16 +161,17 @@ class ContainerComponentOptions:
     tty: bool = attrs.field(default=False, kw_only=True)
     monitor: bool = attrs.field(default=False, kw_only=True)
 
+    # This method is defined here because we are interested in starting the container node from
+    # multiple derived classes with several different behaviors.
+    def start_container_node(self, env: Environment) -> ContainerNode:
+        # Wait for network name to be set
+        while not env.network.name:
+            env.network.reload()
 
-@attrs.define()
-class ContainerComponent(ContainerComponentOptions, Component[Environment, ContainerNode]):
-    ports: Ports = attrs.Factory(dict)  # Make ports optional for container component
-
-    def start(self, environment: Environment) -> ContainerNode:
-        container = environment.client.containers.run(
+        container = env.client.containers.run(
             image=self.image,
             command=self.command,
-            network=environment.network_name,
+            network=env.network.name,
             tty=self.tty,
             name=self.name,
             detach=True,
@@ -177,14 +180,25 @@ class ContainerComponent(ContainerComponentOptions, Component[Environment, Conta
             },
         )
 
-        while container.status == "created":
+        # Wait for container to report that it is running
+        while container.status != "running":
             container.reload()
 
-        if self.monitor:
-            warn("Monitoring is not currently supported")
-            # return MonitoredContainerNode(container, remove=self.remove)
+        node = ContainerNode(container)
 
-        return ContainerNode(container)
+        if self.monitor:
+            return MonitoredContainerNode.from_node(node)
+
+        return node
+
+
+@attrs.define()
+class ContainerComponent(ContainerOptions, Component[Environment, ContainerNode]):
+    ports = attrs.Factory(dict)
+
+    @override
+    def start(self, environment: Environment) -> ContainerNode:
+        return self.start_container_node(environment)
 
 
 @attrs.define()
@@ -198,7 +212,7 @@ class ReporterNode(CommunicationNode[Any, Any]):
     """
 
     node: ContainerNode = attrs.field()
-    host_port: int = attrs.field(alias="port")
+    port: int = attrs.field(alias="port")
 
     @property
     def container(self) -> Container:
@@ -217,7 +231,9 @@ class ReporterNode(CommunicationNode[Any, Any]):
             The python object returned from the node
         """
 
-        with _transport_socket(self.host_port) as sock:
+        host_port = self.node.get_host_port(self.port)
+
+        with _transport_socket(host_port) as sock:
             frame = sock.send_pyobj(msg)
 
             """
@@ -236,26 +252,18 @@ class ReporterNode(CommunicationNode[Any, Any]):
 
 
 @attrs.define()
-class ReporterComponent(ContainerComponentOptions, Component[Environment, ReporterNode]):
+class ReporterComponentOptions(ContainerOptions):
     ports: Ports = attrs.field(init=False)  # Remove ports from init argument
     port: int = attrs.field()  # Add port argument that will be converted into ports
 
     def __attrs_post_init__(self):
         self.ports = {self.port: "tcp"}
 
-    def start(self, environment: Environment) -> ReporterNode:
-        component = ContainerComponent(
-            image=self.image,
-            command=self.command,
-            ports={self.port: "tcp"},
-            name=self.name,
-            tty=self.tty,
-            monitor=self.monitor,
-        )
-        node = component.start(environment)
-        port = node.host_port(self.port)
 
-        return ReporterNode(node, port)
+@attrs.define()
+class ReporterComponent(ReporterComponentOptions, Component[Environment, ReporterNode]):
+    def start(self, environment: Environment) -> ReporterNode:
+        return ReporterNode(self.start_container_node(environment), self.port)
 
 
 class AttachedNode(Node):
