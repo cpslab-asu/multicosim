@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from collections.abc import Callable, Generator
 from contextlib import ExitStack, contextmanager
@@ -8,9 +10,9 @@ import zmq
 from typing_extensions import override
 
 from ..simulations import CommunicationNode, Component, NodeId, Simulation, MultiComponentSimulator
-from .component import ReporterComponent, ReporterNode
+from .component import Environment, ReporterComponent, ReporterComponentOptions, ReporterNode
 from .gazebo import GazeboConfig, GazeboContainerComponent, GazeboContainerNode
-from .simulation import ContainerSimulation, ContainerSimulator, Environment, NodeT
+from .simulation import ContainerSimulation, ContainerSimulator, NodeT
 
 DEFAULT_PORT: Final[int] = 5556
 
@@ -141,7 +143,15 @@ class FirmwareContainerNode(ReporterNode, CommunicationNode[MsgT, DataT]):
 
 
 @attrs.define()
-class FirmwareContainerComponent(ReporterComponent, Component[Environment, FirmwareContainerNode[MsgT, DataT]]):
+class FirmwareComponentOptions(ReporterComponentOptions, Generic[MsgT, DataT]):
+    message_type: type[MsgT] = attrs.field(kw_only=True)
+    response_type: type[DataT] = attrs.field(kw_only=True)
+
+
+@attrs.define()
+class FirmwareContainerComponent(
+    FirmwareComponentOptions[MsgT, DataT], Component[Environment, FirmwareContainerNode[MsgT, DataT]]
+):
     """A component representing the firmware/controller of a system.
 
     Args:
@@ -150,19 +160,10 @@ class FirmwareContainerComponent(ReporterComponent, Component[Environment, Firmw
         port: The port to use for communication with the controller
     """
 
-    message_type: type[MsgT] = attrs.field(kw_only=True)
-    response_type: type[DataT] = attrs.field(kw_only=True)
-
     @override
     def start(self, environment: Environment) -> FirmwareContainerNode[MsgT, DataT]:
-        node = super().start(environment)
-
-        return FirmwareContainerNode(
-            node.node,
-            node.host_port,
-            self.message_type,
-            self.response_type,
-        )
+        node = self.start_container_node(environment)
+        return FirmwareContainerNode(node, self.port, self.message_type, self.response_type)
 
 
 @attrs.define()
