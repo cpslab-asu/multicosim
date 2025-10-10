@@ -1,3 +1,5 @@
+"""Containerized simulation components."""
+
 from __future__ import annotations
 
 from collections.abc import Generator, Iterable
@@ -74,6 +76,22 @@ class ContainerNode(Node):
     remove: bool = attrs.field(kw_only=True, default=True)
 
     def host_port(self, container_port: int, protocol: PortProtocol = "tcp") -> int:
+        """Find the host port for a given container port.
+
+        This method will reload the container until the port mapping is populated, so it is possible
+        to get stuck in an infinite loop if the mapping is never populated.
+
+        Args:
+            container_port: The port bound from the container
+            protocol: The communication protocol for the port
+
+        Returns:
+            The corresponding port on the host
+
+        Raises:
+            ValueError: If the port is not bound in the container
+        """
+
         key = f"{container_port}/{protocol}"
 
         while len(self.container.ports[key]) == 0:
@@ -82,6 +100,8 @@ class ContainerNode(Node):
         return _get_host_port(self.container, container_port, protocol=protocol)
 
     def name(self) -> str:
+        """Name of the underlying container."""
+
         while self.container.name is None:
             self.container.reload()
 
@@ -127,6 +147,18 @@ class MonitoredContainerNode(ContainerNode):
 
 @attrs.define()
 class ContainerComponent(Component[Environment, ContainerNode]):
+    """A component for executing a simulation in a container.
+
+    Args:
+        image: The container image to use
+        command: The command to execute in the container
+        ports: Set of container ports and their associated protocols to be bound from the container
+        name: The name of the container
+        tty: Allocate a tty in the container
+        remove: Remove the container when the simulation is terminated
+        monitor: Raise an exception if the container exits before the simulation is terminated
+    """
+
     image: str = attrs.field()
     command: str = attrs.field()
     ports: dict[int, Literal["tcp", "udp"]] = attrs.field(factory=dict)
@@ -135,6 +167,7 @@ class ContainerComponent(Component[Environment, ContainerNode]):
     remove: bool = attrs.field(default=True, kw_only=True)
     monitor: bool = attrs.field(default=False, kw_only=True)
 
+    @override
     def start(self, environment: Environment) -> ContainerNode:
         container = environment.client.containers.run(
             image=self.image,
@@ -159,11 +192,11 @@ class ContainerComponent(Component[Environment, ContainerNode]):
 
 
 class ReporterNode(CommunicationNode[object, object]):
-    """A simulation node that is responsible for returning data after the simulation.
+    """A simulation node that supports communication with the underlying simulator using 0MQ sockets.
 
     Args:
         container: The container executing the simulation component
-        port: The exposed port from the container
+        port: The host port to use for communication
         remove: Flag indicating if the container should be removed at completion
     """
 
@@ -172,8 +205,11 @@ class ReporterNode(CommunicationNode[object, object]):
         self.host_port = port
 
     def name(self) -> str:
+        """The name of the container running the simulation."""
+
         return self.node.name()
 
+    @override
     def send(self, msg: object) -> object:
         """Send a message to the node and return its response.
 
@@ -200,8 +236,20 @@ class ReporterNode(CommunicationNode[object, object]):
 
 
 class ReporterComponent(Component[Environment, ReporterNode]):
+    """A component that produces a simulator that supports communication.
+
+    Args:
+        image: The container image to use for execution
+        command: The command to execute in the container
+        port: The container port to bind for the 0MQ socket
+        tty: Allocate a tty in the container
+        name: The name to use for the container
+        remove: Remove the container when the simulation exits
+        monitor: Raise an error if the container exits before the simulation is stopped
+    """
+
     def __init__(self, image: str, command: str, port: int, *, tty: bool = False, name: str = "", remove: bool = True, monitor: bool = False):
-        self.component = ContainerComponent(
+        self.component: ContainerComponent = ContainerComponent(
             image,
             command,
             ports={port: "tcp"},
@@ -210,8 +258,9 @@ class ReporterComponent(Component[Environment, ReporterNode]):
             remove=remove,
             monitor=monitor,
         )
-        self.port = port
+        self.port: int = port
 
+    @override
     def start(self, environment: Environment) -> ReporterNode:
         node = self.component.start(environment)
         port = node.host_port(self.port)
@@ -254,11 +303,11 @@ class Attached(Component[Environment, AttachedNode]):
 
     def start(self, environment: Environment) -> AttachedNode:
         parent = self.parent.start(environment)
-        
+
         while parent.container.name is None:
             parent.container.reload()
 
         env = Environment(environment.client, f"container:{parent.container.name}")
-        children = [child.start(env) for child in self.children] 
+        children = [child.start(env) for child in self.children]
 
         return AttachedNode(parent, children)

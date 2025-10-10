@@ -1,3 +1,5 @@
+"""Simulation component with improved communication and associated server."""
+
 import logging
 from collections.abc import Callable, Generator
 from contextlib import ExitStack, contextmanager
@@ -51,6 +53,24 @@ def _transport_socket(port: int) -> Generator[zmq.Socket, None, None]:
 
 
 class FirmwareServer(Generic[MsgT, DataT]):
+    """A server for communicating with a FirmwareComponent implementation on the host from a container.
+
+    This server awaits a message of the optionally specified type, and then calls the user-provided
+    function with the message as the argument. If a type is specified then if the received message
+    is a different type an error response will be sent. If a type is not specified then any message
+    is accepted.
+
+    If an error occurs during the execution of the simulation function, then an error response with
+    a string representation of the error will be returned.
+
+    This class can be called like a function, which provides the same behavior as calling the
+    user-provided function directly.
+
+    Args:
+        func: The function responsible for starting the simulation once the message is received
+        msgtype: The optional type of the message to wait for
+    """
+
     def __init__(self, func: Callable[[MsgT], DataT], msgtype: type[MsgT] | None = None):
         self.msgtype = msgtype
         self.func = func
@@ -62,6 +82,15 @@ class FirmwareServer(Generic[MsgT, DataT]):
         return self.func(msg)
 
     def listen(self, port: int = DEFAULT_PORT):
+        """Start the server waiting for the required message.
+
+        This function waits for a message, and then calls the user-provided function, and finally
+        sends the response.
+
+        Args:
+            port: The port to listen on
+        """
+
         with _transport_socket(port) as socket:
             logger = logging.getLogger("multicosim.program")
             logger.addHandler(logging.NullHandler())
@@ -91,6 +120,18 @@ class FirmwareDecorator(Protocol[A]):
 
 
 def firmware(*, msgtype: type[MsgT]) -> FirmwareDecorator[MsgT]:
+    """Transform a function into firmware server.
+
+    This function is to provide an ergonomic way to transform functions into servers without needing
+    to instantiate the class directly.
+
+    Args:
+        msgtype: The type of the message to accept
+
+    Returns:
+        A decorator function that transforms a function into a `FirmwareServer`
+    """
+
     def decorator(func: Callable[[MsgT], DataT]) -> FirmwareServer[MsgT, DataT]:
         return FirmwareServer(func, msgtype)
 
@@ -121,7 +162,7 @@ def _extract_response_data(response: object, data_type: type[DataT]) -> DataT:
     if isinstance(response, Success):
         if isinstance(response.data, data_type):
             return response.data
-        
+
         raise ResponseDataTypeError(response.data, data_type)
 
     raise ResponseTypeError(response)
@@ -129,12 +170,36 @@ def _extract_response_data(response: object, data_type: type[DataT]) -> DataT:
 
 @attrs.define()
 class FirmwareContainerNode(CommunicationNode[MsgT, DataT]):
+    """A node representing a running simulation implementing the firmware server interface.
+
+    This function will check both the type of the message and the type of the response. If an
+
+    Args:
+        node: The reporter node to use for communication
+        message_type: The type of the message to send to the server
+        response_type: The type of the data that will be received from the server
+    """
+
     node: ReporterNode
     message_type: type[MsgT]
     response_type: type[DataT]
 
     @override
     def send(self, msg: MsgT) -> DataT:
+        """Send the given message to the simulation and return the response.
+
+        Args:
+            msg: The message to send to the firmware
+
+        Returns:
+            The response from the simulation
+
+        Raises:
+            FirmwareError: If the firmware encountered an error during execution
+            ResponseDataTypeError: If the type of the response data is incorrect
+            ResponseTypeError: If the type of the response message is incorrect
+        """
+
         if not isinstance(msg, self.message_type):
             raise TypeError(f"Unsupported message type {type(msg)}, expected {self.message_type}")
 
@@ -147,7 +212,7 @@ class FirmwareContainerNode(CommunicationNode[MsgT, DataT]):
 
 @attrs.define()
 class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[MsgT, DataT]]):
-    """A component representing the firmware/controller of a system.
+    """A component that creates a simulation implementing the firmware server interface.
 
     Args:
         image: The docker image to use for execution
@@ -207,23 +272,46 @@ class FirmwareConfig(Generic[MsgT, DataT]):
 
 @attrs.define()
 class JointGazeboFirmwareNode(CommunicationNode[MsgT, ResultT]):
+    """Node representing the composition of a firmware simulation and gazebo simulation.
+
+    This node provides named access to the gazebo and firmware nodes rather than requiring users
+    to use NodeId values to retrieve them.
+
+    Args:
+        gazebo: The executing gazebo simulation
+        firmware: The executing firmware simulation
+    """
+
     gazebo: GazeboContainerNode
     firmware: FirmwareContainerNode[MsgT, ResultT]
 
-    def send(self, msg: MsgT):
+    @override
+    def send(self, msg: MsgT) ->ResultT:
         return self.firmware.send(msg)
 
+    @override
     def stop(self):
         self.gazebo.stop()
         self.firmware.stop()
 
 
 @attrs.define()
-class JointGazeboFirmwareComponent(Component[Environment, JointGazeboFirmwareNode], Generic[MsgT, ResultT]):
+class JointGazeboFirmwareComponent(Component[Environment, JointGazeboFirmwareNode[MsgT, ResultT]]):
+    """Component that represents the composition of a firmware and gazebo component.
+
+    This component returns the specialized composition node that allows for named access to the
+    sub-nodes.
+
+    Args:
+        gazebo: The gazebo component
+        firmware The firmware component
+    """
+
     gazebo: GazeboContainerComponent
     firmware: FirmwareContainerComponent[MsgT, ResultT]
 
-    def start(self, environment: Environment) -> JointGazeboFirmwareNode:
+    @override
+    def start(self, environment: Environment) -> JointGazeboFirmwareNode[MsgT, ResultT]:
         return JointGazeboFirmwareNode(
             self.gazebo.start(environment),
             self.firmware.start(environment),
@@ -232,6 +320,13 @@ class JointGazeboFirmwareComponent(Component[Environment, JointGazeboFirmwareNod
 
 @attrs.define()
 class GazeboFirmwareSimulation(Simulation, Generic[MsgT, ResultT]):
+    """Simulation that provides named access to the firmware and gazebo nodes it contains.
+
+    Args:
+        simulation: The container simulation
+        node_id: The id of the firmware/gazebo composition node
+    """
+
     simulation: ContainerSimulation
     node_id: NodeId[JointGazeboFirmwareNode[MsgT, ResultT]]
 
@@ -247,9 +342,10 @@ class GazeboFirmwareSimulation(Simulation, Generic[MsgT, ResultT]):
 
         return self.simulation.get(self.node_id).gazebo
 
+    @override
     def stop(self):
         return self.simulation.stop()
-    
+
 
 class GazeboFirmwareSimulator(MultiComponentSimulator[Environment, GazeboFirmwareSimulation[MsgT, ResultT]]):
     """A simulator tree representing a simulation using a firmware that utilizes gazebo and acts as the system controller.
@@ -270,7 +366,7 @@ class GazeboFirmwareSimulator(MultiComponentSimulator[Environment, GazeboFirmwar
     @override
     def add(self, component: Component[Environment, NodeT]) -> NodeId[NodeT]:
         return self.simulator.add(component)
-    
+
     @override
-    def start(self) -> GazeboFirmwareSimulation:
+    def start(self) -> GazeboFirmwareSimulation[MsgT, ResultT]:
         return GazeboFirmwareSimulation(self.simulator.start(), self.node_id)

@@ -40,7 +40,7 @@ class ODE(Backend):
 
     class Solver(IntEnum):
         """Open Dynamics Engine backend dynamics equations solver.
-        
+
         The `QUICK` solver uses an iterative Projected Gauss-Seidel method whose accuracy scales with
         the number of iterations. The `WORLD` solver uses a direct method called Dantzig that always
         produces an accurate solution if one exists.
@@ -72,7 +72,7 @@ class Dart(Backend):
 
     class Solver(IntEnum):
         """Dart backend dynamics equations solver.
-        
+
         The `PGS` solver uses an iterative Projected Gauss-Seidel approximation method. The
         `DANTZIG` solver uses a direct method called Dantzig that always produces an accurate
         solution if one exists.
@@ -138,6 +138,13 @@ class _Gazebo:
 
 @attrs.define()
 class GazeboContainerNode(Node):
+    """Node representing an executing Gazebo simulation.
+
+    Args:
+        world: The name of the world generated for execution
+        node: The node managing the container execution
+    """
+
     world: str
     node: ContainerNode
 
@@ -147,11 +154,27 @@ class GazeboContainerNode(Node):
 
 
 class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
+    """A component that produces a Gazebo simulation inside of a container.
+
+    Args:
+        image: The container image that contains Gazebo
+        template: The SDF file to use as a template to generate the final configuration
+        model_dir: The directory of the Gazebo models
+        world: The name of the generated world
+        backend: The integration backend to use for the physics simulation
+        step_size: The size of the integration step to use for the physics simulation
+        sensor_topics: A list of (model, sensor, new_topic) tuples used to remap sensor topics
+        name: The name of the container to use
+        headless: Run the simulation without a graphical interface
+        remove: Remove the container when the simulation is stopped
+        monitor: Raise an error if the container exists before it is stopped
+    """
+
     def __init__(
         self,
         image: str = "ghcr.io/cpslab-asu/multicosim/gazebo:harmonic",
         template: str = "/app/resources/worlds/default.sdf",
-        model_dir: Path = Path("/app/resources/models"),    
+        model_dir: Path = Path("/app/resources/models"),
         world: str = "generated",
         backend: Backend | None = None,
         step_size: float = 0.001,
@@ -203,7 +226,7 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
 @dataclass()
 class Simulation:
     """Gazebo simulation executed in a docker container.
-    
+
     Args:
         container: The simulation container
     """
