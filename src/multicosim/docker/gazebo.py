@@ -166,6 +166,7 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         sensor_topics: A list of (model, sensor, new_topic) tuples used to remap sensor topics
         name: The name of the container to use
         headless: Run the simulation without a graphical interface
+        record: Have simulation record state and console logs to /app/logs
         remove: Remove the container when the simulation is stopped
         monitor: Raise an error if the container exists before it is stopped
     """
@@ -182,6 +183,7 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
         *,
         name: str = "",
         headless: bool = False,
+        record: bool = False,
         remove: bool = False,
         monitor: bool = False,
     ):
@@ -202,6 +204,9 @@ class GazeboContainerComponent(Component[Environment, GazeboContainerNode]):
 
         if headless:
             parts.append("--headless")
+
+        if record:
+            parts.append("--record")
 
         for model_name, sensor_name, topic_name in sensor_topics:
             parts.append(f"--sensor-topic {model_name} {sensor_name} {topic_name}")
