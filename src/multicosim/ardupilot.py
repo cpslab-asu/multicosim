@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Final
+from typing import Final, TypeVar
 
 from attrs import define, field, frozen
 from typing_extensions import override
 
+from multicosim.docker.component import ContainerComponent, ContainerNode
 from multicosim.docker.simulation import ContainerSimulation, ContainerSimulator
 
 from . import simulations as _sims
@@ -14,7 +15,8 @@ from .docker import firmware as _fw
 from .docker import gazebo as _gz
 
 PORT: Final[int] = 5556
-
+MsgT = TypeVar("MsgT", contravariant=True)
+DataT = TypeVar("DataT", covariant=True)
 
 class Vehicle(Enum):
     NONE = 0
@@ -36,8 +38,7 @@ class Vehicle(Enum):
             case 4:
                 return "sub"
 
-
-@frozen()
+@define()
 class FirmwareOptions:
     """Options for ArduPilot SITL firmware.
 
@@ -53,18 +54,6 @@ class FirmwareOptions:
     param_files: list[str] = field(factory=list)
     image: str = field(default=f"ghcr.io/cpslab-asu/multicosim/ardupilot/firmware:{__version__}")
 
-
-class ArduPilotFirmwareNode(_sims.Node):
-    def __init__(self, node: ArduPilotGazeboNode):
-        self._node: ArduPilotGazeboNode = node
-
-    @override
-    def stop(self):
-        # Only stop the firmware node because this node is supposed to only represent the firmware
-        # component even though we store the joint component in order to access the gazebo information
-        return self._node.firmware.stop()
-
-
 @frozen()
 class Environment(_fw.Environment):
     gazebo_host: str
@@ -72,7 +61,7 @@ class Environment(_fw.Environment):
 
 
 @define()
-class ArduPilotComponent(_sims.Component[Environment, ArduPilotFirmwareNode]):
+class ArduPilotContainerComponent(_sims.Component[Environment, ContainerNode]):
     """Component repesenting the ArduPilot SITL firmware.
 
     Args:
@@ -90,8 +79,8 @@ class ArduPilotComponent(_sims.Component[Environment, ArduPilotFirmwareNode]):
     remove: bool = False
 
     @override
-    def start(self, environment: Environment) -> ArduPilotFirmwareNode:
-        command = f"firmware --vehicle {self.vehicle} --frame {self.frame} --gazebo-host {environment.gazebo_host}"
+    def start(self, environment: Environment) -> ContainerNode:
+        command = f"firmware --vehicle {str(self.vehicle)} --frame {self.frame} --gazebo-host {environment.gazebo_host}"
 
         for param_file in self.param_files:
             command += f" --param-file {param_file}"
@@ -99,12 +88,9 @@ class ArduPilotComponent(_sims.Component[Environment, ArduPilotFirmwareNode]):
         if environment.gcs_host is not None:
             command += f" --gcs-host {environment.gcs_host}"
 
-        component = _fw.FirmwareContainerComponent(
+        component = ContainerComponent(
             image=self.image,
             command=command,
-            port=PORT,
-            message_type=Start,
-            response_type=Result,
             tty=True,
             remove=self.remove,
         )
@@ -115,12 +101,13 @@ class ArduPilotComponent(_sims.Component[Environment, ArduPilotFirmwareNode]):
 @define()
 class ArduPilotGazeboNode(_sims.Node):
     gazebo: _gz.GazeboContainerNode
-    firmware: _fw.FirmwareContainerNode[Start, Result]
+    ardupilot: ContainerNode
+    host: _fw.FirmwareContainerNode
 
     def stop(self):
-        self.firmware.stop()
+        self.ardupilot.stop()
         self.gazebo.stop()
-
+        self.host.stop()
 
 class ArduPilotGazeboComponent(_sims.Component[_fw.Environment, ArduPilotGazeboNode]):
     """Component to handle sequencing of ArduPilot start-up.
@@ -135,17 +122,22 @@ class ArduPilotGazeboComponent(_sims.Component[_fw.Environment, ArduPilotGazeboN
         firmare: The ArduPilot firmware component
     """
 
-    def __init__(self, gazebo: _gz.GazeboContainerComponent, firmware: ArduPilotComponent):
+    def __init__(self, gazebo: _gz.GazeboContainerComponent, ardupilot: ArduPilotContainerComponent, host: _fw.FirmwareContainerComponent):
         self.gazebo = gazebo
-        self.firmware = firmware
+        self.host = host
+        self.ardupilot = ardupilot
 
     @override
     def start(self, environment: _fw.Environment) -> ArduPilotGazeboNode:
         gz = self.gazebo.start(environment)
-        env_ext = Environment(environment.client, environment.network_name, gz.node.name())
-        fw = self.firmware.start(env_ext)
+        hst = self.host.start(environment)
+        env_ext = Environment(environment.client, 
+                              environment.network_name, 
+                              gz.node.name(), 
+                              hst.node.name())
+        fw = self.ardupilot.start(env_ext)
 
-        return ArduPilotGazeboNode(gz, fw)
+        return ArduPilotGazeboNode(gz, fw, hst)
 
 
 class Simulation(_sims.Simulation):
@@ -165,19 +157,27 @@ class Simulation(_sims.Simulation):
         return self.node.gazebo
 
     @property
-    def firmware(self) -> ArduPilotFirmwareNode:
-        return ArduPilotFirmwareNode(self.node)
+    def ardupilot(self) -> ContainerNode:
+        return self.node.ardupilot
+    
+    @property
+    def host(self) -> _fw.FirmwareContainerNode:
+        return self.node.host
+    
+    @property
+    def container_node(self) -> ArduPilotGazeboNode:
+        return self.node
 
     @override
     def stop(self):
         return self.inner.stop()
 
-
-@frozen()
+@define()
 class GazeboOptions:
     image: str = "ghcr.io/cpslab-asu/multicosim/ardupilot/gazebo:harmonic"
     world: str = "/app/resources/worlds/iris_runway.sdf"
-
+    headless: bool = False
+    record: bool = False
 
 class Simulator(_sims.MultiComponentSimulator[_fw.Environment, Simulation]):
     """ArduPilot simulator using SITL firmware and Gazebo.
@@ -188,22 +188,26 @@ class Simulator(_sims.MultiComponentSimulator[_fw.Environment, Simulation]):
         remove: Remove containers after simulation is stopped
     """
 
-    def __init__(self, gazebo: GazeboOptions, firmware: FirmwareOptions, *, remove: bool = False):
+    def __init__(self, gazebo: GazeboOptions, firmware: FirmwareOptions, host: _fw.FirmwareConfig, *, remove: bool = False):
         gazebo_ = _gz.GazeboContainerComponent(
             image=gazebo.image,
             template=gazebo.world,
+            headless=gazebo.headless,
+            record=gazebo.record,
             remove=remove,
         )
 
-        firmware_ = ArduPilotComponent(
+        firmware_ = ArduPilotContainerComponent(
             image=firmware.image,
             vehicle=firmware.vehicle,
             frame=firmware.frame,
             param_files=firmware.param_files,
         )
 
+        host_ = _fw.FirmwareContainerComponent(**host.params())
+
         self.simulator = ContainerSimulator()
-        self.node_id = self.simulator.add(ArduPilotGazeboComponent(gazebo_, firmware_))
+        self.node_id = self.simulator.add(ArduPilotGazeboComponent(gazebo_, firmware_, host_))
 
     @override
     def add(self, component: _sims.Component[_fw.Environment, _sims.NodeT]) -> _sims.NodeId[_sims.NodeT]:
