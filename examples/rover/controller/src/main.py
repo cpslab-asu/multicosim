@@ -15,6 +15,8 @@ import controller.messages as msgs
 import controller.attacks as atk
 import controller.automaton as ha
 
+import multicosim.docker
+
 
 class PublisherError(Exception):
     pass
@@ -108,7 +110,7 @@ def controller(ctx: click.Context, verbose: bool):
     ctx.obj["logger"] = logger
 
 
-@mcs.serve(msgtype=msgs.Start)
+@multicosim.docker.firmware(msgtype=msgs.Start)
 def server(msg: msgs.Start) -> msgs.Result:
     return msgs.Result(run(msg.world, msg.frequency, msg.magnet, msg.speed, msg.commands))
 
@@ -116,7 +118,7 @@ def server(msg: msgs.Start) -> msgs.Result:
 @controller.command()
 @click.option("-p", "--port", type=int, default=5556)
 def serve(port: int):
-    server(port)
+    server.listen(port)
 
 
 @controller.command()
