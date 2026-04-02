@@ -2,19 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from itertools import repeat
-from pprint import pprint
 from logging import DEBUG, INFO, WARNING, Logger, NullHandler, basicConfig, getLogger
+from pprint import pprint
 
 import apscheduler.schedulers.blocking as sched
 import click
-import multicosim as mcs
-import numpy.random as rand
-
-import rover
-import controller.messages as msgs
 import controller.attacks as atk
 import controller.automaton as ha
+import controller.messages as msgs
+import numpy.random as rand
+import rover
 
+import multicosim as mcs
 import multicosim.docker
 
 
@@ -32,7 +31,7 @@ def run(
     logger = getLogger("controller.simulation")
     logger.addHandler(NullHandler())
 
-    step_size: float = 1.0/frequency
+    step_size: float = 1.0 / frequency
     logger.info(f"Step size: {step_size}")
 
     magnet = magnet or atk.StationaryMagnet(0.0)
@@ -121,6 +120,13 @@ def serve(port: int):
     server.listen(port)
 
 
+def _create_magnet(position: tuple[float, float] | None) -> atk.Magnet:
+    if position is None:
+        return atk.StationaryMagnet(0.0)
+
+    return atk.GaussianMagnet(position[0], position[1], rng=rand.default_rng())
+
+
 @controller.command()
 @click.pass_context
 @click.option("-w", "--world", default="default")
@@ -132,11 +138,11 @@ def start(
     world: str,
     frequency: int,
     speed: float,
-    magnet: tuple[float, float] | None
+    magnet: tuple[float, float] | None,
 ):
     logger: Logger = ctx.obj["logger"]
     logger.info("No port specified, starting controller using defaults.")
-    magnet_: atk.Magnet = atk.GaussianMagnet(magnet[0], magnet[1], rand.default_rng()) if magnet else atk.StationaryMagnet(0.0)
+    magnet_: atk.Magnet = _create_magnet(magnet)
     speed_ = atk.FixedSpeed(speed)
     history = run(world, frequency, magnet_, speed_, commands=repeat(None))
 
