@@ -1,5 +1,7 @@
 """Simulation component with improved communication and associated server."""
 
+from __future__ import annotations
+
 import logging
 from collections.abc import Callable, Generator
 from contextlib import ExitStack, contextmanager
@@ -9,7 +11,7 @@ import attrs
 import zmq
 from typing_extensions import override
 
-from ..simulations import CommunicationNode, Component, NodeId, Simulation, MultiComponentSimulator
+from ..simulations import CommunicationNode, Component, MultiComponentSimulator, NodeId, Simulation
 from .component import ReporterComponent, ReporterNode
 from .gazebo import GazeboConfig, GazeboContainerComponent, GazeboContainerNode
 from .simulation import ContainerSimulation, ContainerSimulator, Environment, NodeT
@@ -40,7 +42,7 @@ class MessageError(SimulationError):
 
 
 @contextmanager
-def _transport_socket(port: int) -> Generator[zmq.Socket, None, None]:
+def _transport_socket(port: int) -> Generator[zmq.Socket[bytes], None, None]:
     with ExitStack() as stack:
         ctx = stack.enter_context(zmq.Context())
         sock = stack.enter_context(ctx.socket(zmq.REP))
@@ -115,8 +117,7 @@ A = TypeVar("A")
 
 
 class FirmwareDecorator(Protocol[A]):
-    def __call__(self, func: Callable[[A], DataT]) -> FirmwareServer[A, DataT]:
-        ...
+    def __call__(self, func: Callable[[A], DataT]) -> FirmwareServer[A, DataT]: ...
 
 
 def firmware(*, msgtype: type[MsgT]) -> FirmwareDecorator[MsgT]:
@@ -233,7 +234,9 @@ class FirmwareContainerComponent(Component[Environment, FirmwareContainerNode[Ms
         remove: bool = False,
         monitor: bool = False,
     ):
-        self.component = ReporterComponent(image, command, port, tty=tty, name=name, remove=remove, monitor=monitor)
+        self.component = ReporterComponent(
+            image, command, port, tty=tty, name=name, remove=remove, monitor=monitor
+        )
         self.message_type = message_type
         self.response_type = response_type
 
@@ -259,15 +262,17 @@ class FirmwareConfig(Generic[MsgT, DataT]):
     monitor: bool = attrs.field(default=True, kw_only=True)
 
     def params(self) -> dict[str, Any]:
-        return {"image" : self.image,
-                "command" : self.command,
-                "port" : self.port,
-                "message_type" : self.message_type,
-                "response_type" : self.response_type,
-                "name" : self.name,
-                "tty" : self.tty,
-                "remove" : self.remove,
-                "monitor" : self.monitor}
+        return {
+            "image": self.image,
+            "command": self.command,
+            "port": self.port,
+            "message_type": self.message_type,
+            "response_type": self.response_type,
+            "name": self.name,
+            "tty": self.tty,
+            "remove": self.remove,
+            "monitor": self.monitor,
+        }
 
 
 @attrs.define()
@@ -286,7 +291,7 @@ class JointGazeboFirmwareNode(CommunicationNode[MsgT, ResultT]):
     firmware: FirmwareContainerNode[MsgT, ResultT]
 
     @override
-    def send(self, msg: MsgT) ->ResultT:
+    def send(self, msg: MsgT) -> ResultT:
         return self.firmware.send(msg)
 
     @override
@@ -347,7 +352,9 @@ class GazeboFirmwareSimulation(Simulation, Generic[MsgT, ResultT]):
         return self.simulation.stop()
 
 
-class GazeboFirmwareSimulator(MultiComponentSimulator[Environment, GazeboFirmwareSimulation[MsgT, ResultT]]):
+class GazeboFirmwareSimulator(
+    MultiComponentSimulator[Environment, GazeboFirmwareSimulation[MsgT, ResultT]]
+):
     """A simulator tree representing a simulation using a firmware that utilizes gazebo and acts as the system controller.
 
     Args:
