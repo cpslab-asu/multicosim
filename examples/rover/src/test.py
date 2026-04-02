@@ -5,38 +5,18 @@ import pathlib
 import typing
 
 import click
-import multicosim
 import numpy.random as rand
 import staliro
-import staliro.optimizers
-import staliro.specifications.rtamt
-
-from controller.attacks import FixedSpeed, GaussianMagnet, SpeedController, Magnet
-from controller.messages import Start, Result
+from controller.attacks import FixedSpeed, GaussianMagnet
+from controller.messages import Result, Start
 from plots import Plot, plot
+
+import multicosim
+import multicosim.docker
 
 PORT: typing.Final[int] = 5556
 GZ_BASE: typing.Final[pathlib.Path] = pathlib.Path("resources/worlds/default.sdf")
 GZ_WORLD: typing.Final[pathlib.Path] = pathlib.Path("/tmp/generated.sdf")
-
-
-def firmware(*, verbose: bool):
-    prefix = "controller"
-
-    if verbose:
-        prefix = f"{prefix} --verbose"
-
-    @multicosim.manage(
-        firmware_image="ghcr.io/cpslab-asu/multicosim/rover/controller:latest",
-        gazebo_image="ghcr.io/cpslab-asu/multicosim/rover/gazebo:harmonic",
-        command=f"{prefix} serve --port {PORT}",
-        port=PORT,
-        rtype=Result,
-    )
-    def inner(world: str, magnet: Magnet | None, speed: SpeedController | None, freq: int) -> Start:
-        return Start(world, freq, magnet, speed, commands=itertools.repeat(None))
-
-    return inner
 
 
 @click.command("simulation")
@@ -51,14 +31,33 @@ def simulation(speed: float, freq: int, magnet: tuple[float, float] | None, *, v
     else:
         magnet_ = None
 
-    gazebo = multicosim.Gazebo()
-    firmware_ = firmware(verbose=verbose)
-    result = firmware_.run(gazebo, freq=freq, magnet=magnet_, speed=FixedSpeed(speed))
+    prefix = "controller"
+
+    if verbose:
+        prefix = f"{prefix} --verbose"
+
+    fw = multicosim.docker.FirmwareContainerComponent(
+        image="ghcr.io/cpslab-asu/multicosim/rover/controller:latest",
+        command=f"{prefix} serve --port {PORT}",
+        port=PORT,
+        message_type=Start,
+        response_type=Result,
+    )
+
+    gz = multicosim.docker.GazeboContainerComponent(
+        image="ghcr.io/cpslab-asu/multicosim/rover/gazebo:harmonic",
+    )
+
+    sim = multicosim.docker.ContainerSimulator(gz)
+    fw_id = sim.add(fw)
+    sys = sim.start()
+    msg = Start(gz.world, freq, magnet_, FixedSpeed(magnitude=speed), itertools.repeat(None))
+    res = sys.get(fw_id).send(msg)
     p = Plot(
         magnet=magnet,
-        trajectory=staliro.Trace({
-            step.time: [step.position[0], step.position[1]] for step in result.history
-        }),
+        trajectory=staliro.Trace(
+            {step.time: [step.position[0], step.position[1]] for step in res.history}
+        ),
     )
 
     plot(p)
