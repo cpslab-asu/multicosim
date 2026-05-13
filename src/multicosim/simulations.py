@@ -90,7 +90,7 @@ class Component(Protocol[EnvT, NodeT]):
     required to start the component.
     """
 
-    def start(self, environment: EnvT) -> NodeT:
+    def start(self, __environment: EnvT) -> NodeT:
         """Start the simulator and return a handle to the executing simulation."""
         ...
 
