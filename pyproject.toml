@@ -26,7 +26,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "attrs>=23.2.0",
+    "attrs>=24.1.0",
     "docker>=7.1.0",
     "nanoid>=2.0.0",
     "numpy>=1.26.4",
@@ -51,7 +51,6 @@ test = [
 examples = [
     "click>=8.1.8",
     "multicosim-rover-controller",
-    "psy-taliro>=1.0.0",
 ]
 types = [
     "types-docker>=7.1.0.20260109",
