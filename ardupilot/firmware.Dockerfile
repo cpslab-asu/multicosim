@@ -35,7 +35,7 @@ WORKDIR ${APP_ROOT}
 
 # Copy ardupilot image files
 COPY ./pyproject.toml ./uv.lock ./
-COPY --from=ghcr.io/astral-sh/uv:0.5.29  /uv /usr/bin/
+COPY --from=ghcr.io/astral-sh/uv:latest  /uv /usr/bin/
 RUN uv venv --system-site-packages --seed --python-preference only-system
 RUN uv sync --frozen --no-dev
 

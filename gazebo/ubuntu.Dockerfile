@@ -3,7 +3,7 @@ FROM base AS venv
 WORKDIR /app
 
 COPY ./pyproject.toml ./uv.lock ./
-RUN --mount=from=ghcr.io/astral-sh/uv:0.5.29,source=/uv,target=/bin/uv \
+RUN --mount=from=ghcr.io/astral-sh/uv:latest,source=/uv,target=/bin/uv \
     uv venv --system-site-packages --relocatable && \
     uv sync --python-preference only-system --frozen --no-dev
 
