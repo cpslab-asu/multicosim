@@ -25,15 +25,12 @@ COPY mods/ardupilot/SIM_JSON.h libraries/SITL/
 FROM base AS venv
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV MULTICOSIM_ROOT=/opt/multicosim
 ENV APP_ROOT=/app
 
 # Install python3
 RUN apt-get update && apt-get install -y python3
 
 # Set multicosim and app directoies
-RUN mkdir ${MULTICOSIM_ROOT}
-RUN mkdir ${APP_ROOT}
 WORKDIR ${APP_ROOT}
 
 # Copy ardupilot image files
@@ -43,9 +40,7 @@ RUN uv venv --system-site-packages --seed --python-preference only-system
 RUN uv sync --frozen --no-dev
 
 # Copy multicosim files
-COPY --from=multicosim ./pyproject.toml ./README.md ${MULTICOSIM_ROOT}/
-COPY --from=multicosim ./src/ ${MULTICOSIM_ROOT}/src/
-RUN uv pip install --reinstall ${MULTICOSIM_ROOT}
+RUN --mount=type=bind,from=multicosim,target=/opt/multicosim uv pip install --reinstall /opt/multicosim
 
 #######################
 # FIRWARE BUILD SECTION

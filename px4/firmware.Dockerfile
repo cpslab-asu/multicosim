@@ -50,13 +50,7 @@ RUN uv venv --system-site-packages --python-preference only-system
 RUN uv sync --frozen --no-dev
 RUN patch .venv/lib/python3.10/site-packages/mavsdk/system.py mavsdk.patch
 
-ENV MULTICOSIM_ROOT=/opt/multicosim
-RUN mkdir ${MULTICOSIM_ROOT}
-COPY --from=multicosim ./pyproject.toml ./README.md ${MULTICOSIM_ROOT}/
-COPY --from=multicosim ./src/ ${MULTICOSIM_ROOT}/src/
-RUN uv pip install --reinstall ${MULTICOSIM_ROOT}
-
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS firmware
+FROM base AS firmware
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="MultiCoSim image with PX4 firmware"
