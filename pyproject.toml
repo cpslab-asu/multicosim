@@ -41,9 +41,11 @@ issues = "https://github.com/cpslab-asu/multicosim/issues"
 source = "https://github.com/cpslab-asu/multicosim"
 
 [dependency-groups]
-dev = []
-test = [
+dev = [
     "nox>=2025.5.1",
+    "nox-uv>=0.7.1",
+]
+test = [
     "pytest>=8.4.2",
 ]
 examples = [
