@@ -49,6 +49,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/bin/
 RUN uv venv --system-site-packages --python-preference only-system --relocatable
 RUN uv sync --frozen --no-dev
 RUN patch .venv/lib/python3.10/site-packages/mavsdk/system.py mavsdk.patch
+RUN --mount=type=bind,from=multicosim,target=/opt/multicosim uv pip install --reinstall /opt/multicosim
 
 FROM base AS firmware
 
