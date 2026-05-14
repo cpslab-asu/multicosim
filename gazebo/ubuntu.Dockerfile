@@ -23,11 +23,11 @@ COPY <<'EOF' /usr/local/bin/gazebo
 #!/usr/bin/bash
 /app/.venv/bin/python3 /app/src/gazebo.py $@
 EOF
+RUN chmod +x-w /usr/local/bin/gazebo
 
 COPY --from=venv /app ${GZ_ROOT}
 COPY ./src ${GZ_ROOT}/src
 COPY ./resources ${GZ_ROOT}/resources
 WORKDIR /app
 
-RUN chmod +x-w /usr/local/bin/gazebo
 CMD ["/usr/local/bin/gazebo"]
