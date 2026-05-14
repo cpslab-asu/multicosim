@@ -11,7 +11,7 @@ RUN apt-get update \
         gstreamer1.0-libav \
         gstreamer1.0-gl \
         libdebuginfod-dev \
-    &&  rm -rf /var/lib/lists/* 
+    &&  rm -rf /var/lib/lists/*
 
 FROM base AS build
 

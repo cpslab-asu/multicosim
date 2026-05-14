@@ -7,12 +7,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y git
 
 # Create ardupilot directory
-RUN mkdir /opt/ardupilot 
+RUN mkdir /opt/ardupilot
 WORKDIR /opt/ardupilot
 
 # Now grab ArduPilot from GitHub
 RUN git clone https://github.com/ArduPilot/ardupilot .
- 
+
 # Now start build instructions from http://ardupilot.org/dev/docs/setting-up-sitl-on-linux.html
 RUN git submodule update --init --recursive
 
@@ -43,7 +43,7 @@ RUN uv sync --frozen --no-dev
 RUN --mount=type=bind,from=multicosim,target=/opt/multicosim uv pip install --reinstall /opt/multicosim
 
 #######################
-# FIRWARE BUILD SECTION
+# FIRMWARE BUILD SECTION
 #######################
 FROM base AS firmware
 
@@ -60,7 +60,7 @@ RUN groupadd ${USER_NAME} --gid 1000\
     && useradd -l -m ${USER_NAME} -u 1000 -g 1000 -s /bin/bash
 
 # Install prerequisites
-RUN apt-get update && apt-get install --no-install-recommends -y \ 
+RUN apt-get update && apt-get install --no-install-recommends -y \
     sudo \
     lsb-release \
     tzdata \
@@ -96,7 +96,7 @@ RUN SKIP_AP_GRAPHIC_ENV=1 SKIP_AP_COV_ENV=1 SKIP_AP_GIT_CHECK=1 \
 # Continue build instructions from https://github.com/ArduPilot/ardupilot/blob/master/BUILD.md
 RUN ./waf configure --board sitl
 RUN ./waf copter
-# RUN ./waf rover 
+# RUN ./waf rover
 # RUN ./waf plane
 # RUN ./waf sub
 
@@ -113,7 +113,7 @@ ENV BUILDLOGS=/tmp/buildlogs
 RUN sudo apt-get clean \
     && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Set max cache size    
+# Set max cache size
 ENV CCACHE_MAXSIZE=1G
 
 #######################
@@ -130,7 +130,7 @@ COPY --from=venv --chown=${USER_NAME}:${USER_NAME} /app ${APP_ROOT}
 WORKDIR ${APP_ROOT}
 COPY --chown=${USER_NAME}:${USER_NAME} ./src/ ./src/
 
-# Create run script 
+# Create run script
 COPY <<'EOF' /usr/local/bin/firmware
 #!/usr/bin/bash
 /app/.venv/bin/python3 /app/src/firmware.py $@

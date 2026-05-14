@@ -43,7 +43,7 @@ RUN mkdir /app
 WORKDIR /app
 
 # Copy px4 program source files
-COPY ./pyproject.toml ./uv.lock mavsdk.patch ./
+COPY ./pyproject.toml ./uv.lock ./mavsdk.patch ./
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/bin/
 RUN uv venv --system-site-packages --python-preference only-system --relocatable
