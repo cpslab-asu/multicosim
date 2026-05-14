@@ -19,6 +19,7 @@ which requires a `stop` method that is used to terminate the simulation of the c
 
 from __future__ import annotations
 
+import contextlib
 from typing import Generic, Protocol, TypeVar
 
 import attrs
@@ -126,6 +127,15 @@ class Simulator(Protocol[EnvT_co, SimT]):
     def start(self) -> SimT:
         """Start the simulator and return a handle to the executing simulation."""
         ...
+
+    @contextlib.contextmanager
+    def run(self):
+        sys = self.start()
+
+        try:
+            yield sys
+        finally:
+            sys.stop()
 
 
 class MultiComponentSimulator(Simulator[EnvT_co, SimT], Protocol):
