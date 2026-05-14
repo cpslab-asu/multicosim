@@ -1,5 +1,5 @@
-FROM ghcr.io/cpslab-asu/multicosim/gazebo:harmonic AS base
-     
+FROM gazebo AS base
+
 RUN apt-get update \
     &&  DEBIAN_FRONTEND=noninteractive apt-get install -y \
         libgz-sim8-dev \

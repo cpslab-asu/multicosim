@@ -1,4 +1,4 @@
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS build
+FROM base AS build
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -34,7 +34,7 @@ RUN python3 -m venv .venv
 RUN .venv/bin/pip install -r ./Tools/setup/requirements.txt
 RUN . .venv/bin/activate && make px4_sitl
 
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS venv
+FROM base AS venv
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y patch

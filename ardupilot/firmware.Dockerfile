@@ -1,7 +1,7 @@
 #######################
 # INITIAL BUILD SECTION
 #######################
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS build
+FROM base AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y git
@@ -22,7 +22,7 @@ COPY mods/ardupilot/SIM_JSON.h libraries/SITL/
 ####################
 # VENV BUILD SECTION
 ####################
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS venv
+FROM base AS venv
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV MULTICOSIM_ROOT=/opt/multicosim
@@ -50,7 +50,7 @@ RUN uv pip install --reinstall ${MULTICOSIM_ROOT}
 #######################
 # FIRWARE BUILD SECTION
 #######################
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS firmware
+FROM base AS firmware
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="MultiCoSim image with ArduPilot firmware"
