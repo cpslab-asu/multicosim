@@ -1,101 +1,69 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
 
 [project]
 name = "multicosim"
-dynamic = ["version"]
-description = 'Manage gazebo simulations using docker'
+version = "0.3.0"
+description = "Multi-component simulation definition framework"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
-keywords = []
+keywords = ["simulation"]
 authors = [
   { name = "Quinn Thibeault", email = "quinn.thibeault96@gmail.com" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "attrs",
-    "docker",
-    "nanoid",
-    "numpy",
-    "pyzmq",
-    "typing-extensions",
+    "attrs>=23.2.0",
+    "docker>=7.1.0",
+    "nanoid>=2.0.0",
+    "numpy>=1.26.4",
+    "pyzmq>=27.1.0",
+    "typing-extensions>=4.15.0",
+    "unique-namer>=1.6.2",
 ]
 
 [project.urls]
-Documentation = "https://github.com/cpslab-asu/multicosim#readme"
-Issues = "https://github.com/cpslab-asu/multicosim/issues"
-Source = "https://github.com/cpslab-asu/multicosim"
+documentation = "https://github.com/cpslab-asu/multicosim#readme"
+issues = "https://github.com/cpslab-asu/multicosim/issues"
+source = "https://github.com/cpslab-asu/multicosim"
 
-[tool.hatch.version]
-path = "src/multicosim/__about__.py"
-
-[tool.hatch.envs.default]
-dependencies = [
-    "types-docker"
+[dependency-groups]
+dev = []
+test = [
+    "nox>=2025.5.1",
+    "pytest>=8.4.2",
+]
+examples = [
+    "click>=8.1.8",
+    "multicosim-rover-controller",
+    "psy-taliro>=1.0.0",
+]
+types = [
+    "types-docker>=7.1.0.20260109",
+    "mypy>=1.19.1",
+]
+lint = [
+    "ruff>=0.15.12",
 ]
 
-[tool.hatch.envs.examples]
-dependencies = [
-    "click",
-    "psy-taliro",
-    "multicosim-rover-controller @ {root:uri}/examples/rover/controller",
-]
+[tool.uv]
+default-groups = ["dev", "lint", "types", "test", "examples"]
 
-[tool.hatch.envs.examples.scripts]
-quickstart = "python3 examples/quickstart.py"
-rover = "python3 examples/rover/src/test.py {args}"
-ardupilot = "python3 examples/ardupilot.py"
-
-[tool.hatch.envs.types]
-extra-dependencies = [
-    "mypy>=1.0.0",
-]
-
-[tool.hatch.envs.types.scripts]
-check = "mypy --pretty --install-types --non-interactive {args:src tests}"
-
-[tool.hatch.envs.lint]
-detached = true
-dependencies = [
-    "ruff>=0.9.7"
-]
-
-[tool.hatch.envs.lint.scripts]
-check = [
-    "ruff check {args:src tests}",
-    "ruff format --diff {args:src tests}",
-]
-
-[tool.coverage.run]
-source_pkgs = ["multicosim", "tests"]
-branch = true
-parallel = true
-omit = [
-  "src/multicosim/__about__.py",
-]
-
-[tool.coverage.paths]
-multicosim = ["src/multicosim", "*/multicosim/src/multicosim"]
-tests = ["tests", "*/multicosim/tests"]
-
-[tool.coverage.report]
-exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-]
+[tool.uv.sources]
+multicosim-rover-controller = { path = "./examples/rover/controller" }
 
 [tool.pyright]
 pythonVersion = "3.9"
@@ -138,3 +106,7 @@ select = [
 [tool.ruff.lint.isort]
 known-first-party = ["multicosim"]
 split-on-trailing-comma = false
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
