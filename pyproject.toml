@@ -66,6 +66,9 @@ default-groups = ["dev", "lint", "types", "test", "examples"]
 [tool.uv.sources]
 multicosim-rover-controller = { path = "./examples/rover/controller" }
 
+[tool.uv.workspace]
+members = ["px4", "gazebo"]
+
 [tool.pyright]
 pythonVersion = "3.9"
 include = ["src"]
