@@ -1,3 +1,7 @@
+variable "MULTICOSIM_VERSION" {
+  default = "latest"
+}
+
 group "default" {
   targets = ["gazebo", "ardupilot", "px4"]
 }
@@ -67,6 +71,6 @@ target "px4-firmware" {
   }
   dockerfile = "firmware.Dockerfile"
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/px4/firmware:latest",
+    "ghcr.io/cpslab-asu/multicosim/px4/firmware:${MULTICOSIM_VERSION}",
   ]
 }
