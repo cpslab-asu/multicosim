@@ -6,13 +6,13 @@ import signal
 import subprocess
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Literal, TypeAlias, Final
 from types import FrameType
+from typing import Final, Literal, TypeAlias
 
 import click
-import sdformat14 as sdf
 import lxml.etree as xml
-    
+import sdformat14 as sdf
+
 GZ_SIM_RESOURCE_PATH: Final[str] = "GZ_SIM_RESOURCE_PATH"
 
 
@@ -83,7 +83,9 @@ def update_model_sensor_topics(model: sdf.Model, topics: Iterable[tuple[str, str
         name = sensor.name()
 
         if name in topics_map:
-            sensor.set_topic(topics_map[name])  # Set topic if sensor is specific in mapping, ignore otherwise
+            sensor.set_topic(
+                topics_map[name]
+            )  # Set topic if sensor is specific in mapping, ignore otherwise
 
 
 class ModelNotFoundError(Exception):
@@ -95,7 +97,9 @@ class ModelNotFoundError(Exception):
         )
 
 
-def set_sensor_topics(model_dirs: list[pathlib.Path], model: str, topics: Iterable[tuple[str, str]]):
+def set_sensor_topics(
+    model_dirs: list[pathlib.Path], model: str, topics: Iterable[tuple[str, str]]
+):
     for model_dir in model_dirs:
         for m in model_dir.iterdir():
             if m.name == model:
@@ -104,7 +108,7 @@ def set_sensor_topics(model_dirs: list[pathlib.Path], model: str, topics: Iterab
                 root.load(f"{model_file}")
 
                 update_model_sensor_topics(root.model(), topics)
-                
+
                 with model_file.open("wt") as f:
                     f.write(root.to_string())
 
@@ -136,9 +140,10 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element):
     cmd = f"gz sim -s -r -v4"
     if config.headless:
         cmd += " --headless-rendering"
-    cmd += f" {world}" 
+    cmd += f" {world}"
 
     with subprocess.Popen(args=cmd, shell=True, executable="/usr/bin/bash") as proc:
+
         def shutdown():
             proc.kill()
             proc.wait()
@@ -166,7 +171,14 @@ ModelDirPath = click.Path(exists=True, file_okay=False, path_type=pathlib.Path)
 @click.option("-w", "--world", type=WorldPath, default=pathlib.Path("generated.sdf"))
 @click.option("-b", "--base", type=BaseWorld, default=pathlib.Path("resources/worlds/default.sdf"))
 @click.option("-S", "--step-size", type=float, default=0.001)
-@click.option("-m", "--model-dir", "model_dirs", type=ModelDirPath, multiple=True, default=[pathlib.Path("resources/models")])
+@click.option(
+    "-m",
+    "--model-dir",
+    "model_dirs",
+    type=ModelDirPath,
+    multiple=True,
+    default=[pathlib.Path("resources/models")],
+)
 @click.option("--sensor-topic", "sensor_topics", type=(str, str, str), multiple=True, default=[])
 @click.option("--headless", is_flag=True)
 @click.option("--verbose", is_flag=True)
@@ -203,7 +215,7 @@ def ode(ctx: click.Context, solver: ODESolver, iterations: int):
     type_elem.text = solver
     iters_elem = xml.SubElement(solver_elem, "iters")
     iters_elem.text = f"{iterations}"
-    
+
     run_gazebo(ctx, engine=engine_elem)
 
 
