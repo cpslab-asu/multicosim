@@ -4,7 +4,7 @@ import logging
 import pytest
 import typing_extensions
 
-from multicosim import containers
+from multicosim import __version__, containers
 
 Component: typing_extensions.TypeAlias = containers.Component
 
@@ -19,6 +19,7 @@ def wait10() -> Component:
     return containers.Component(image="alpine:latest", command="sleep 10")
 
 
+@pytest.mark.integration
 def test_wait(caplog: pytest.LogCaptureFixture, wait5: Component, wait10: Component):
     caplog.set_level(logging.ERROR, "urllib3")
     caplog.set_level(logging.ERROR, "docker")
@@ -41,13 +42,16 @@ def test_wait(caplog: pytest.LogCaptureFixture, wait5: Component, wait10: Compon
             asyncio.run(sys.wait_for(wait10))
 
 
+@pytest.mark.integration
 def test_send(caplog: pytest.LogCaptureFixture, wait5: Component):
     caplog.set_level(logging.ERROR, "urllib3")
     caplog.set_level(logging.ERROR, "docker")
 
     server = containers.ConnectedComponent(
-        image="multicosim/tests/wait-server:latest",
+        image=f"multicosim/tests/server:{__version__}",
         command="python3 /app/server.py",
+        msg_type=int,
+        data_type=type(None),
         port=5556,
     )
 
