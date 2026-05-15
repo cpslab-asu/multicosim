@@ -59,10 +59,16 @@ class Component(BaseComponent):
     ports: set[int] = attrs.field(factory=set)
 
 
+MsgT = typing.TypeVar("MsgT")
+DataT = typing.TypeVar("DataT")
+
+
 @attrs.define()
-class ConnectedComponent(BaseComponent):
+class ConnectedComponent(BaseComponent, typing.Generic[MsgT, DataT]):
     port: int = attrs.field()
     ports: set[int] = attrs.field(factory=set)
+    msg_type: type[MsgT] = attrs.field(kw_only=True)
+    data_type: type[DataT] = attrs.field(kw_only=True)
 
     def __attrs_post_init__(self):
         self.ports.add(self.port)
@@ -191,7 +197,10 @@ class Simulation(_Simulation):
         for task in done:
             return task.result()
 
-    async def send(self, component: ConnectedComponent, msg: object) -> object:
+    async def send(self, component: ConnectedComponent[MsgT, DataT], msg: MsgT) -> DataT:
+        if not isinstance(msg, component.msg_type):
+            raise TypeError(f"Component expects messages of type {component.msg_type}")
+
         dependencies = self._dependencies_for(component).union({component.id})
         monitor_task = asyncio.create_task(
             _ensure_running(self.children[dep].container for dep in dependencies)
@@ -213,16 +222,22 @@ class Simulation(_Simulation):
         for task in pending:
             _ = task.cancel()
 
-        for task in done:
-            value = task.result()
+        if len(done) > 1:
+            raise RuntimeError("More than one task completed")
 
-            if isinstance(value, Success):
-                return value.data
+        task = done.pop()
+        value = task.result()
 
-            if isinstance(value, Failure):
-                raise InternalComponentError(value.msg)
+        if isinstance(value, Success):
+            if not isinstance(value.data, component.data_type):
+                raise TypeError(f"Component expects result data of type {component.data_type}")
 
-            raise TypeError(f"Unexpected type {type(value)} returned from component {component}")
+            return value.data
+
+        if isinstance(value, Failure):
+            raise InternalComponentError(value.msg)
+
+        raise TypeError(f"Unexpected type {type(value)} returned from component {component}")
 
     @typing_extensions.override
     def stop(self):
