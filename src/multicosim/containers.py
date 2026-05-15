@@ -165,6 +165,7 @@ class _ComponentSimulation:
 
 @attrs.frozen()
 class Simulation(_Simulation):
+    context: Context
     children: dict[uuid.UUID, _ComponentSimulation]
 
     def _dependencies_for(self, component: BaseComponent) -> set[uuid.UUID]:
