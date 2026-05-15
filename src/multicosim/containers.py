@@ -10,6 +10,7 @@ if typing.TYPE_CHECKING:
 
 import attrs
 import docker
+import docker.errors
 import docker.models.containers
 import namer
 import typing_extensions
@@ -286,12 +287,18 @@ class Simulator(_Simulator[Context, Simulation]):
         client = docker.from_env()
         network = client.networks.create(namer.generate())
         context = Context(client, network)
+        children: dict[uuid.UUID, _ComponentSimulation] = {}
 
-        return Simulation({c.component.id: c.start(context) for c in self.components})
+        try:
+            for c in self.components:
+                children[c.component.id] = c.start(context)
 
+            return Simulation(context, children)
+        except docker.errors.DockerException as e:
+            for s in children.values():
+                s.container.kill()
 
-MsgT = typing.TypeVar("MsgT")
-DataT = typing.TypeVar("DataT")
+            raise e
 
 
 @attrs.frozen()
