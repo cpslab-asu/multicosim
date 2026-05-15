@@ -113,5 +113,4 @@ known-first-party = ["multicosim"]
 split-on-trailing-comma = false
 
 [tool.pytest.ini_options]
-log_cli = true
-log_cli_level = "DEBUG"
+markers = ["integration"]
