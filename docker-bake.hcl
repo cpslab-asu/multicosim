@@ -75,3 +75,17 @@ target "px4-firmware" {
     "ghcr.io/cpslab-asu/multicosim/px4/firmware:${MULTICOSIM_VERSION}",
   ]
 }
+
+group "tests" {
+  targets = ["tests-server"]
+}
+
+target "tests-server" {
+  context = "./tests/server"
+  contexts = {
+    multicosim = "."
+  }
+  tags = [
+    "multicosim/tests/server:${MULTICOSIM_VERSION}",
+  ]
+}
