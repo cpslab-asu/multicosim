@@ -14,6 +14,7 @@ target "gazebo" {
   context = "./gazebo"
   contexts = {
     base = "target:base"
+    multicosim = "."
   }
   dockerfile = "ubuntu.Dockerfile"
   tags = [

@@ -2,7 +2,9 @@ FROM base AS venv
 
 WORKDIR /app
 
-COPY ./pyproject.toml ./uv.lock ./
+COPY ./pyproject.toml ./
+COPY --from=multicosim ./uv.lock ./
+
 RUN --mount=from=ghcr.io/astral-sh/uv:latest,source=/uv,target=/bin/uv \
     uv venv --system-site-packages --relocatable && \
     uv sync --python-preference only-system --frozen --no-dev

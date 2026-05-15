@@ -36,19 +36,19 @@ RUN . .venv/bin/activate && make px4_sitl
 
 FROM base AS venv
 
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y patch
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y patch
 
-RUN mkdir /app
 WORKDIR /app
 
 # Copy px4 program source files
-COPY ./pyproject.toml ./uv.lock ./mavsdk.patch ./
+COPY ./pyproject.toml ./mavsdk.patch ./
+COPY --from=multicosim ./uv.lock ./
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/bin/
 RUN uv venv --system-site-packages --python-preference only-system --relocatable
 RUN uv sync --frozen --no-dev
 RUN patch .venv/lib/python3.10/site-packages/mavsdk/system.py mavsdk.patch
+
 RUN --mount=type=bind,from=multicosim,target=/opt/multicosim uv pip install --reinstall /opt/multicosim
 
 FROM base AS firmware
