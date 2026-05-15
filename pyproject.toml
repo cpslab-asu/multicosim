@@ -71,6 +71,7 @@ pythonVersion = "3.9"
 include = ["src"]
 venvPath = "."
 venv = ".venv"
+stubPath = "stubs"
 
 [tool.mypy]
 python_version = "3.9"
