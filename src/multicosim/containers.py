@@ -21,8 +21,7 @@ if typing.TYPE_CHECKING:
     from docker import DockerClient
     from docker.models.networks import Network
 
-from .gazebo import Gazebo as _Gazebo
-from .gazebo import backend_args
+from . import gazebo
 from .simulations import Component as _Component
 from .simulations import Simulation as _Simulation
 from .simulations import Simulator as _Simulator
@@ -83,7 +82,7 @@ class Gazebo(BaseComponent):
     world: str = attrs.field(default="generated")
     ports: set[int] = attrs.field(factory=set, init=False)
     command: str = attrs.field(init=False)
-    options: _Gazebo = attrs.field(factory=_Gazebo)
+    options: gazebo.Options = attrs.field(factory=gazebo.Options)
 
     def __attrs_post_init__(self):
         parts = [
@@ -96,7 +95,7 @@ class Gazebo(BaseComponent):
         ]
 
         prefix = " ".join(parts)
-        suffix = backend_args(self.options.backend)
+        suffix = gazebo.backend_args(self.options.backend)
         self.command = f"{prefix} {suffix}"
 
 

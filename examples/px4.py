@@ -13,7 +13,7 @@ if __name__ == "__main__":
     )
 
     firmware = px4.Firmware()
-    gazebo = gz.Gazebo()
+    gazebo = gz.Options()
     sim = px4.PX4(firmware, gazebo)
 
     with sim.run() as sys:

@@ -100,9 +100,6 @@ def _(b: Simbody) -> str:
 
 
 @attrs.define()
-class Gazebo:
+class Options:
     backend: Backend = attrs.field(factory=ODE)
     step_size: float = attrs.field(default=0.001)
-
-
-Options = Gazebo

@@ -98,7 +98,11 @@ class Simulation(_simulations.Simulation):
 
 
 class PX4(_simulations.Simulator[_containers.Context, Simulation]):
-    def __init__(self, firmware: Firmware, gazebo: _gz.Gazebo):
+    def __init__(self, firmware: Firmware, gazebo: _gz.Options | None = None):
+        # Use default Gazebo options if none are provided
+        if gazebo is None:
+            gazebo = _gz.Options()
+
         self.gazebo: _containers.Gazebo = _containers.Gazebo(
             image="ghcr.io/cpslab-asu/multicosim/px4/gazebo:harmonic",
             options=gazebo,
