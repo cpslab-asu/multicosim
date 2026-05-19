@@ -427,6 +427,8 @@ class _Registration:
 
 
 class Simulator(_Simulator[Context, Simulation]):
+    """Simulator implementation using container-based components."""
+
     def __init__(self) -> None:
         self.components: set[_Registration] = set()
 
@@ -438,7 +440,8 @@ class Simulator(_Simulator[Context, Simulation]):
         A list of dependencies D can also be provided alongside the component c which represents the
         set of components that c depends on. These components will also be monitored while interacting
         component c. This set of dependencies is flattened during interaction, which means that
-        components can mutually depend on each other either explicitly or transitively.
+        components can mutually depend on each other either explicitly or transitively. Dependencies
+        are only considered while interacting with component c, not during start-up or shutdown.
         """
 
         if depends is not None:
