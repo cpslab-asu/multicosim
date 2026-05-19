@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import logging
+import os
+import pathlib
 import typing
 import uuid
 
@@ -12,6 +15,7 @@ import attrs
 import docker
 import docker.errors
 import docker.models.containers
+import docker.types
 import namer
 import typing_extensions
 import zmq
@@ -40,13 +44,24 @@ class ComponentId:
     value: uuid.UUID = attrs.field(init=False, factory=uuid.uuid4)
 
 
+def _create_mounts(files: dict[pathlib.Path, str]) -> Iterable[docker.types.Mount]:
+    for src, dst in files.items():
+        resolved = src.resolve()
+
+        if not resolved.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(resolved))
+
+        yield docker.types.Mount(type="bind", source=str(resolved), target=dst)
+
+
 @attrs.define()
 class BaseComponent(_Component[Context, Container]):
     id: ComponentId = attrs.field(factory=ComponentId, init=False)
     image: str = attrs.field()
     command: str = attrs.field()
     ports: set[int] = attrs.field()
-    tty: bool = attrs.field(kw_only=True, default=True)
+    files: dict[pathlib.Path, str] = attrs.field()
+    tty: bool = attrs.field()
 
     @typing_extensions.override
     def start(self, context: Context) -> Container:
@@ -54,6 +69,7 @@ class BaseComponent(_Component[Context, Container]):
             image=self.image,
             command=self.command,
             ports={f"{port}/tcp": None for port in self.ports},
+            mounts=list(_create_mounts(self.files)),
             tty=self.tty,
             detach=True,
         )
@@ -61,7 +77,9 @@ class BaseComponent(_Component[Context, Container]):
 
 @attrs.define()
 class Component(BaseComponent):
-    ports: set[int] = attrs.field(factory=set)
+    ports: set[int] = attrs.field(kw_only=True, factory=set)
+    files: dict[pathlib.Path, str] = attrs.field(kw_only=True, factory=dict)
+    tty: bool = attrs.field(kw_only=True, default=True)
 
 
 MsgT = typing.TypeVar("MsgT")
@@ -69,9 +87,8 @@ DataT = typing.TypeVar("DataT")
 
 
 @attrs.define()
-class ConnectedComponent(BaseComponent, typing.Generic[MsgT, DataT]):
+class ConnectedComponent(Component, typing.Generic[MsgT, DataT]):
     port: int = attrs.field()
-    ports: set[int] = attrs.field(factory=set)
     msg_type: type[MsgT] = attrs.field(kw_only=True)
     data_type: type[DataT] = attrs.field(kw_only=True)
 
