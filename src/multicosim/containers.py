@@ -408,10 +408,12 @@ class Simulator(_Simulator[Context, Simulation]):
         components can mutually depend on each other either explicitly or transitively.
         """
 
-        if depends is None:
-            depends = set()
+        if depends is not None:
+            dependencies: frozenset[ComponentId] = frozenset(c.id for c in depends)
+        else:
+            dependencies = frozenset()
 
-        self.components.add(_Registration(component, frozenset(c.id for c in depends)))
+        self.components.add(_Registration(component, dependencies))
 
     @typing_extensions.override
     def start(self) -> Simulation:
