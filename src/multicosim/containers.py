@@ -20,6 +20,7 @@ component to terminate, or communicating with a running component.
 
 from __future__ import annotations
 
+import abc
 import asyncio
 import errno
 import logging
@@ -73,35 +74,46 @@ class ComponentId:
     value: uuid.UUID = attrs.field(init=False, factory=uuid.uuid4)
 
 
-def _create_mounts(files: dict[pathlib.Path, str]) -> Iterable[docker.types.Mount]:
-    for src, dst in files.items():
-        resolved = src.resolve()
+def _create_mount(source: pathlib.Path, target: str) -> docker.types.Mount:
+    resolved = source.resolve()
 
-        if not resolved.exists():
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(resolved))
+    if not resolved.exists():
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(resolved))
 
-        yield docker.types.Mount(type="bind", source=str(resolved), target=dst)
+    return docker.types.Mount(type="bind", source=str(resolved), target=target)
 
 
 @attrs.define()
-class BaseComponent(_Component[Context, Container]):
-    id: ComponentId = attrs.field(factory=ComponentId, init=False)
+class ContainerOptions:
     image: str = attrs.field()
     command: str = attrs.field()
     ports: set[int] = attrs.field()
     files: dict[pathlib.Path, str] = attrs.field()
     tty: bool = attrs.field()
 
-    @typing_extensions.override
     def start(self, context: Context) -> Container:
         return context.client.containers.run(
             image=self.image,
             command=self.command,
             ports={f"{port}/tcp": None for port in self.ports},
-            mounts=list(_create_mounts(self.files)),
+            mounts=[_create_mount(file, target) for file, target in self.files.items()],
             tty=self.tty,
             detach=True,
         )
+
+
+@attrs.define()
+class BaseComponent(_Component[Context, Container], abc.ABC):
+    id: ComponentId = attrs.field(init=False, factory=ComponentId)
+    image: str = attrs.field()
+
+    @abc.abstractmethod
+    def to_options(self) -> ContainerOptions:
+        raise NotImplementedError()
+
+    @typing_extensions.override
+    def start(self, context: Context) -> Container:
+        return self.to_options().start(context)
 
 
 @attrs.define()
@@ -123,9 +135,20 @@ class Component(BaseComponent):
         tty: Flag indicating if a psuedo-tty should be allocated for the container
     """
 
+    command: str = attrs.field()
     ports: set[int] = attrs.field(kw_only=True, factory=set)
     files: dict[pathlib.Path, str] = attrs.field(kw_only=True, factory=dict)
     tty: bool = attrs.field(kw_only=True, default=True)
+
+    @typing_extensions.override
+    def to_options(self) -> ContainerOptions:
+        return ContainerOptions(
+            image=self.image,
+            command=self.command,
+            ports=self.ports,
+            files=self.files,
+            tty=self.tty,
+        )
 
 
 MsgT = typing.TypeVar("MsgT")
@@ -157,8 +180,12 @@ class ConnectedComponent(Component, typing.Generic[MsgT, DataT]):
     msg_type: type[MsgT] = attrs.field(kw_only=True)
     data_type: type[DataT] = attrs.field(kw_only=True)
 
-    def __attrs_post_init__(self):
-        self.ports.add(self.port)
+    @typing_extensions.override
+    def to_options(self) -> ContainerOptions:
+        options = super().to_options()
+        options.ports.add(self.port)
+
+        return options
 
 
 @attrs.define()
@@ -180,11 +207,10 @@ class Gazebo(BaseComponent):
     template: str = attrs.field(default="/app/resources/worlds/default.sdf")
     model_dir: str = attrs.field(default="/app/resources/models")
     world: str = attrs.field(default="generated")
-    ports: set[int] = attrs.field(factory=set, init=False)
-    command: str = attrs.field(init=False)
     options: gazebo.Options = attrs.field(factory=gazebo.Options)
 
-    def __attrs_post_init__(self):
+    @typing_extensions.override
+    def to_options(self) -> ContainerOptions:
         parts = [
             "gazebo",
             "--verbose",
@@ -196,7 +222,14 @@ class Gazebo(BaseComponent):
 
         prefix = " ".join(parts)
         suffix = gazebo.backend_args(self.options.backend)
-        self.command = f"{prefix} {suffix}"
+
+        return ContainerOptions(
+            image=self.image,
+            command=f"{prefix} {suffix}",
+            ports=set(),
+            files={},
+            tty=True,
+        )
 
 
 class MonitoredContainerError(Exception):
