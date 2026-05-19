@@ -1,3 +1,23 @@
+"""Simulation components implemented using containers.
+
+This module exposes several components that are implemented using containers to
+provide a uniform and portable runtime. The primary goals of these components
+are to be composable and extensible so users can specialize them for their
+needs. There are two primary components users should consider:
+
+- Component
+- ConnectedComponent
+
+In addition, we also provide a container interface to the Gazebo simulator through the
+Gazebo class.
+
+To construct a simulation of container components, we provide the Simulator class,
+which allows users to register components for simulation and declare dependencies
+between registered components. Interaction with the running simulation is
+accomplished using the Simulation class, which provides mechanisms for waiting for a
+component to terminate, or communicating with a running component.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -35,12 +55,21 @@ Container: typing_extensions.TypeAlias = docker.models.containers.Container
 
 @attrs.define()
 class Context:
+    """Data class containing the resource handles necessary to start a container.
+
+    Attributes:
+        client: The docker client to use for starting the container
+        network: The network to connect the container to
+    """
+
     client: DockerClient
     network: Network
 
 
 @attrs.frozen(eq=True, hash=True)
 class ComponentId:
+    """A unique identifier for a component."""
+
     value: uuid.UUID = attrs.field(init=False, factory=uuid.uuid4)
 
 
@@ -77,6 +106,23 @@ class BaseComponent(_Component[Context, Container]):
 
 @attrs.define()
 class Component(BaseComponent):
+    """A plain container-based simulation component.
+
+    This class is suited for simulation components which just need to run without any additional
+    interaction. This means the minimum amount of information to define a Component instance is
+    just the container image and command.
+
+    Attributes:
+        id: The unique identifier for the container
+
+    Args:
+        image: The container image to use for execution
+        command: The command to use to start the container image
+        ports: Set of ports that should be bound from the container to random ports on the host
+        files: Mapping of file paths to be bound from the host to the specified path in the container
+        tty: Flag indicating if a psuedo-tty should be allocated for the container
+    """
+
     ports: set[int] = attrs.field(kw_only=True, factory=set)
     files: dict[pathlib.Path, str] = attrs.field(kw_only=True, factory=dict)
     tty: bool = attrs.field(kw_only=True, default=True)
@@ -88,6 +134,25 @@ DataT = typing.TypeVar("DataT")
 
 @attrs.define()
 class ConnectedComponent(Component, typing.Generic[MsgT, DataT]):
+    """A container-based simulation component that supports interaction.
+
+    This class is suited for simulation components which need to be communicated with during
+    the simulation. This class requires at least one port be bound to the host for communication.
+
+    Attributes:
+        id: The unique identifier for the container
+
+    Args:
+        image: The container image to use for execution
+        command: The command to use to start the container image
+        port: The required container port to be bound to the host
+        msg_type: The type of the message to send to the component
+        data_type: The type of the data returned from the component
+        ports: Set of additional ports that should be bound from the container to random ports on the host
+        files: Mapping of file paths to be bound from the host to the specified path in the container
+        tty: Flag indicating if a psuedo-tty should be allocated for the container
+    """
+
     port: int = attrs.field()
     msg_type: type[MsgT] = attrs.field(kw_only=True)
     data_type: type[DataT] = attrs.field(kw_only=True)
@@ -98,6 +163,19 @@ class ConnectedComponent(Component, typing.Generic[MsgT, DataT]):
 
 @attrs.define()
 class Gazebo(BaseComponent):
+    """A container-based component that executed the Gazebo simulator.
+
+    Attributes:
+        id: The unique identifier for the container
+
+    Args:
+        image: The container image to use for execution
+        template: The world to modify with the given simulation options
+        model_dir: The directory containing the model files to use for simulation
+        world: The name of the Gazebo world
+        options: The gazebo simulation options
+    """
+
     image: str = attrs.field(default="ghcr.io/cpslab-asu/multicosim/gazebo:harmonic")
     template: str = attrs.field(default="/app/resources/worlds/default.sdf")
     model_dir: str = attrs.field(default="/app/resources/models")
@@ -203,6 +281,19 @@ class Simulation(_Simulation):
         return seen.difference((component.id,))
 
     async def wait_for(self, component: Component) -> None:
+        """Wait for a component to exit.
+
+        While waiting for the component, any dependencies declared when adding the component to the
+        simulation are also monitored for failure. If a dependency exits before the specified
+        component has terminated, an error is thrown.
+
+        Args:
+            component: The component to wait for
+
+        Raises:
+            MonitoredContainerError: If a component depended on by the specified component exits first
+        """
+
         dependencies = self._dependencies_for(component)
         monitor_task = asyncio.create_task(
             _ensure_running(self.children[dep].container for dep in dependencies)
@@ -221,6 +312,27 @@ class Simulation(_Simulation):
             return task.result()
 
     async def send(self, component: ConnectedComponent[MsgT, DataT], msg: MsgT) -> DataT:
+        """Send a message to a component and return the response.
+
+        While waiting for the response from the component, the component along with any dependencies
+        declared when adding the component to the simulation are monitored for failure. If the
+        component or any of its dependencies exits before the response is received, an error is thrown.
+        This method will check the type of both the message and the returned response using the
+        `msg_type` and `data_type` attributes of the component. This method expects the component to
+        communicate using the `Server` class.
+
+        Args:
+            component: The component to communicate with
+            msg: The data to send to the component
+
+        Returns:
+            The data returned from the component
+
+        Raises:
+            MonitoredContainerError: If the component or one of its dependencies exits before the response is received
+            InternalComponentError: If the response from the container indicates an error occurred during execution
+        """
+
         if not isinstance(msg, component.msg_type):
             raise TypeError(f"Component expects messages of type {component.msg_type}")
 
@@ -288,6 +400,14 @@ class Simulator(_Simulator[Context, Simulation]):
     def add_component(
         self, component: BaseComponent, depends: Iterable[BaseComponent] | None = None
     ):
+        """Add a component to the simulation.
+
+        A list of dependencies D can also be provided alongside the component c which represents the
+        set of components that c depends on. These components will also be monitored while interacting
+        component c. This set of dependencies is flattened during interaction, which means that
+        components can mutually depend on each other either explicitly or transitively.
+        """
+
         if depends is None:
             depends = set()
 
@@ -413,7 +533,7 @@ def server(*, msgtype: type[MsgT]) -> ServerDecorator[MsgT]:
         msgtype: The type of the message to accept
 
     Returns:
-        A decorator function that transforms a function into a `FirmwareServer`
+        A decorator function that transforms a function into a `Server`
     """
 
     def decorator(func: typing.Callable[[MsgT], DataT]) -> Server[MsgT, DataT]:
