@@ -35,9 +35,14 @@ class Context:
     network: Network
 
 
+@attrs.frozen(eq=True, hash=True)
+class ComponentId:
+    value: uuid.UUID = attrs.field(init=False, factory=uuid.uuid4)
+
+
 @attrs.define()
 class BaseComponent(_Component[Context, Container]):
-    id: uuid.UUID = attrs.field(factory=uuid.uuid4, init=False)
+    id: ComponentId = attrs.field(factory=ComponentId, init=False)
     image: str = attrs.field()
     command: str = attrs.field()
     ports: set[int] = attrs.field()
@@ -158,16 +163,16 @@ class InternalComponentError(Exception):
 
 @attrs.define()
 class _ComponentSimulation:
-    container: Container = attrs.field(hash=True)
-    dependencies: frozenset[uuid.UUID] = attrs.field(hash=False)
+    container: Container = attrs.field()
+    dependencies: frozenset[ComponentId] = attrs.field()
 
 
 @attrs.frozen()
 class Simulation(_Simulation):
     context: Context
-    children: dict[uuid.UUID, _ComponentSimulation]
+    children: dict[ComponentId, _ComponentSimulation]
 
-    def _dependencies_for(self, component: BaseComponent) -> set[uuid.UUID]:
+    def _dependencies_for(self, component: BaseComponent) -> set[ComponentId]:
         seen = set(self.children[component.id].dependencies)
         processing = [self.children[dep] for dep in seen]
 
@@ -249,7 +254,7 @@ class Simulation(_Simulation):
 @attrs.define()
 class _Registration:
     component: BaseComponent = attrs.field()
-    dependencies: frozenset[uuid.UUID] = attrs.field()
+    dependencies: frozenset[ComponentId] = attrs.field()
 
     @typing_extensions.override
     def __hash__(self) -> int:
@@ -287,7 +292,7 @@ class Simulator(_Simulator[Context, Simulation]):
         client = docker.from_env()
         network = client.networks.create(namer.generate())
         context = Context(client, network)
-        children: dict[uuid.UUID, _ComponentSimulation] = {}
+        children: dict[ComponentId, _ComponentSimulation] = {}
 
         try:
             for c in self.components:
