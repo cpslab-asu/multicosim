@@ -20,80 +20,9 @@ which requires a `stop` method that is used to terminate the simulation of the c
 from __future__ import annotations
 
 import contextlib
-from typing import Generic, Protocol, TypeVar
-
-import attrs
-import nanoid
-
-
-class Node(Protocol):
-    """A node in the executing simulation tree.
-
-    Each node represents a running simulation, and each implementation must provide a `stop` method
-    that will terminate the execution.
-    """
-
-    def stop(self):
-        """Stop the simulation of the system component."""
-        ...
-
-
-NodeT = TypeVar("NodeT", covariant=True, bound=Node)
-
-
-@attrs.frozen(hash=True)
-class NodeId(Generic[NodeT]):
-    """Unique identifier for a `Node` in a `Simulator`.
-
-    NodeIds are frozen, and cannot be modified once created. Each NodeId has an associated type
-    variable `NodeT` which represents the type of node that it references in the `Simulator`.
-    However, this type variable is only relevant when type checking the program, and is not
-    available at runtime.
-    """
-
-    _id: str = attrs.field(factory=nanoid.generate, init=False)
-
-
-MsgT = TypeVar("MsgT", contravariant=True)
-ResultT = TypeVar("ResultT", covariant=True)
-
-
-class CommunicationNode(Node, Protocol[MsgT, ResultT]):
-    """Node that allows communication with the running simulation.
-
-    This node enables sending and receiving messages from the simulation as it runs, which allows
-    for implementations to request information or provide additional inputs to the simulator as
-    it runs. Each implementation must provide the `send` method, which accepts a message as its
-    parameter and returns the response from the simulation.
-
-    This interface has two type parameters. `MsgT` is the type of the message to send to the
-    simulation and `ResultT` is the type of the response. No type checking is done on these
-    values by default.
-    """
-
-    def send(self, msg: MsgT) -> ResultT:
-        """Send the given message to the simulation and return the response."""
-        ...
-
+from typing import Protocol, TypeVar
 
 EnvT = TypeVar("EnvT", contravariant=True)
-
-
-class Component(Protocol[EnvT, NodeT]):
-    """A component in the simulator tree.
-
-    Each component must implement the `start` method, which receives an environment value that
-    is implementation-specified and must return a `Node` implementation that represents the running
-    simulation of this component. Components are intended to be composed into `Simulator` instances
-    so that each element of the system is represented individually.
-
-    This interface has one type parameter `EnvT` which represents the type of the environment
-    required to start the component.
-    """
-
-    def start(self, __environment: EnvT) -> NodeT:
-        """Start the simulator and return a handle to the executing simulation."""
-        ...
 
 
 class Simulation(Protocol):
@@ -138,28 +67,18 @@ class Simulator(Protocol[EnvT_co, SimT]):
             sys.stop()
 
 
-class MultiComponentSimulator(Simulator[EnvT_co, SimT], Protocol):
-    """A simulator that is composed of several components representing system elements.
+class Component(Protocol[EnvT, SimT]):
+    """A component in the simulator tree.
 
-    This interface imposes a slightly more specific structure onto the simulator which assumes that
-    the simulator is composed of several components. This requires an extra method `add` which is
-    responsible for registering the component with the simulator and returning a NodeId that
-    identifies the added component.
+    Each component must implement the `start` method, which receives an environment value that
+    is implementation-specified and must return a `Node` implementation that represents the running
+    simulation of this component. Components are intended to be composed into `Simulator` instances
+    so that each element of the system is represented individually.
+
+    This interface has one type parameter `EnvT` which represents the type of the environment
+    required to start the component.
     """
 
-    def add(self, component: Component[EnvT_co, NodeT]) -> NodeId[NodeT]:
-        """Add a component to a simulator.
-
-        The component to add should accept the type of environment value produced by this simulator,
-        which can be checked using the type checker. The unique identifier produced by this
-        method is parameterized by the type of node it creates so that the exact type can be
-        used when retrieving the node from the running simulation.
-
-        Args:
-            component: The component to be added
-
-        Returns:
-            The unique id of the component
-        """
-
+    def start(self, environment: EnvT, /) -> SimT:
+        """Start the simulator and return a handle to the executing simulation."""
         ...
