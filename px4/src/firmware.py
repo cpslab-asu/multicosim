@@ -21,7 +21,7 @@ def create_mission_item(waypoint: px4.Waypoint) -> mission.MissionItem:
         waypoint.lon,
         waypoint.alt,
         10,
-        True,
+        True,  # noqa: FBT003
         math.nan,
         math.nan,
         mission.MissionItem.CameraAction.NONE,

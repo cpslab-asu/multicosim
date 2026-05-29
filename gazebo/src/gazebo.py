@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import pathlib
 import signal
 import subprocess
@@ -137,7 +136,7 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element):
         raise RuntimeError()
 
     world = config.create_world(engine=engine)
-    cmd = f"gz sim -s -r -v4"
+    cmd = "gz sim -s -r -v4"
     if config.headless:
         cmd += " --headless-rendering"
     cmd += f" {world}"

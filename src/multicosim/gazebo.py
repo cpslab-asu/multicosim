@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from enum import IntEnum
 from functools import singledispatch
-from typing import Union
+from typing import TypeAlias
 
 import attrs
-import typing_extensions as te
 
 
 @attrs.frozen()
@@ -70,11 +69,12 @@ class Simbody:
     """Simbody physics backend."""
 
 
-Backend: te.TypeAlias = Union[ODE, Dart, Bullet, Simbody]
+Backend: TypeAlias = ODE | Dart | Bullet | Simbody
 
 
 @singledispatch
-def backend_args(b: Backend) -> str: ...
+def backend_args(b: Backend) -> str:
+    raise NotImplementedError()
 
 
 @backend_args.register(ODE)
