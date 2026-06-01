@@ -42,8 +42,10 @@ source = "https://github.com/cpslab-asu/multicosim"
 
 [dependency-groups]
 dev = [
-    "nox>=2025.5.1",
-    "nox-uv>=0.7.1",
+    { include-group = "lint" },
+    { include-group = "types"},
+    { include-group = "test" },
+    { include-group = "examples" },
 ]
 test = [
     "pytest>=8.4.2",
@@ -61,9 +63,6 @@ types = [
 lint = [
     "ruff>=0.15.12",
 ]
-
-[tool.uv]
-default-groups = ["dev", "lint", "types", "test", "examples"]
 
 [tool.uv.sources]
 multicosim-rover-controller = { path = "./examples/rover/controller" }
