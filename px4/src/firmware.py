@@ -57,11 +57,11 @@ def find_state(msg: pose_v.Pose_V) -> px4.Step:
 
 
 class Handler:
-    def __init__(self):
+    def __init__(self) -> None:
         self._steps: list[px4.Step] = []
         self._lock = threading.Lock()
 
-    def __call__(self, msg: pose_v.Pose_V):
+    def __call__(self, msg: pose_v.Pose_V) -> None:
         with self._lock:
             self._steps.append(find_state(msg))
 
@@ -71,7 +71,7 @@ class Handler:
             return px4.History(list(self._steps))
 
 
-async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handler):
+async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handler) -> None:
     logger = logging.getLogger("px4.mission")
     logger.addHandler(logging.NullHandler())
     drone = mavsdk.System()
@@ -147,7 +147,7 @@ def server(msg: px4.Configuration) -> px4.History:
 @click.command("firmware")
 @click.option("--verbose", is_flag=True)
 @click.option("--port", type=int, default=5556)
-def firmware(*, verbose: bool, port: int):
+def firmware(*, verbose: bool, port: int) -> None:
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
