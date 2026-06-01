@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  lint:
+    name: "Check code with Ruff"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v8.1.0
+      - name: Install linting dependencies
+        run: uv sync --frozen --only-group lint
+      - name: Lint code
+        run: uv run ruff check --diff
+      - name: Check formatting
+        run: uv run ruff format --check --diff
+
+  types:
+    name: "Check static type annotations"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v8.1.0
+      - name: Install type-checking dependencies
+        run: uv sync --frozen --no-dev --group types
+      - name: Check types with MyPy
+        run: uv run mypy --pretty
+      - name: Check types with Zuban
+        run: uv run zuban check --pretty # Verify type checking with alternative implementation. One day hope to confidently replace mypy
