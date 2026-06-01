@@ -69,21 +69,20 @@ multicosim-rover-controller = { path = "./examples/rover/controller" }
 [tool.uv.workspace]
 members = ["px4", "gazebo"]
 
-[tool.pyright]
-pythonVersion = "3.9"
-include = ["src"]
-venvPath = "."
-venv = ".venv"
-stubPath = "stubs"
-
-[tool.mypy]
-python_version = "3.9"
-files = ["src"]
-
 [tool.ruff]
 line-length = 100
 indent-width = 4
-target-version = "py39"
+include = [
+    "pyproject.toml",
+    "noxfile.py",
+    "src/**/*.py",
+    "stubs/**/*.pyi",
+    "tests/**/*.py",
+    "examples/**/*.py",
+    "gazebo/src/*.py",
+    "ardupilot/src/*.py",
+    "px4/src/*.py",
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -114,3 +113,24 @@ split-on-trailing-comma = false
 
 [tool.pytest.ini_options]
 markers = ["integration"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+include = ["src"]
+venvPath = "."
+venv = ".venv"
+stubPath = "stubs"
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "stubs"
+files = [
+    "src/**/*.py",
+    "stubs/**/*.pyi",
+    "tests/**/*.py",
+    "examples/**/*.py",
+    "gazebo/src/*.py",
+    "px4/src/*.py",
+    "ardupilot/src/*.py",
+]
+
