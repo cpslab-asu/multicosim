@@ -7,7 +7,7 @@ name = "multicosim"
 version = "0.3.0"
 description = "Multi-component simulation definition framework"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = ["simulation"]
 authors = [
