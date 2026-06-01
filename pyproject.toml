@@ -53,8 +53,9 @@ examples = [
     "multicosim-rover-controller",
 ]
 types = [
-    "types-docker>=7.1.0.20260109",
     "mypy>=1.19.1",
+    "types-docker>=7.1.0.20260109",
+    "zuban>=0.7.2",
 ]
 lint = [
     "ruff>=0.15.12",
