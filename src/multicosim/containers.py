@@ -238,7 +238,12 @@ class MonitoredContainerError(Exception):
         self.container: Container = container
 
 
-async def _ensure_running(containers: Iterable[Container]):
+@attrs.define()
+class ContainerFailure:
+    container: Container
+
+
+async def _ensure_running(containers: Iterable[Container]) -> ContainerFailure:
     containers = list(containers)
     logger = logging.getLogger("multicosim.containers.monitor")
     logger.addHandler(logging.NullHandler())
@@ -250,7 +255,7 @@ async def _ensure_running(containers: Iterable[Container]):
 
             if container.status != "running":
                 logger.error("Container %s exited unexpectedly", container.name)
-                raise MonitoredContainerError(container)
+                return ContainerFailure(container)
 
         await asyncio.sleep(0)
 
@@ -293,6 +298,22 @@ class InternalComponentError(Exception):
 class _ComponentSimulation:
     container: Container = attrs.field()
     dependencies: frozenset[ComponentId] = attrs.field()
+
+
+async def _recv(sock: zmq.asyncio.Socket, response_type: type[DataT]) -> Success[DataT] | Failure:
+    obj = await sock.recv_pyobj()
+
+    if isinstance(obj, Failure):
+        return obj
+
+    if isinstance(obj, Success):
+        if isinstance(obj.data, response_type):
+            return typing.cast(Success[DataT], obj)
+
+        raise TypeError(f"Expected data of type {response_type}, not {type(obj.data)}")
+
+    raise TypeError("Response must be of type `Success | Failure`")
+
 
 
 @attrs.frozen()
@@ -342,7 +363,10 @@ class Simulation(_Simulation):
             _ = task.cancel()
 
         for task in done:
-            return task.result()
+            result = task.result()
+
+            if isinstance(result, ContainerFailure):
+                raise MonitoredContainerError(result.container)
 
     async def send(self, component: ConnectedComponent[MsgT, DataT], msg: MsgT) -> DataT:
         """Send a message to a component and return the response.
@@ -382,7 +406,7 @@ class Simulation(_Simulation):
             sock.connect(f"tcp://127.0.0.1:{host_port}"),
         ):
             _ = await sock.send_pyobj(msg)
-            msg_task = asyncio.ensure_future(sock.recv_pyobj())
+            msg_task = asyncio.ensure_future(_recv(sock, component.data_type))
             done, pending = await asyncio.wait(
                 [monitor_task, msg_task], return_when=asyncio.FIRST_COMPLETED
             )
@@ -394,18 +418,15 @@ class Simulation(_Simulation):
             raise RuntimeError("More than one task completed")
 
         task = done.pop()
-        value = task.result()
+        retval = task.result()
 
-        if isinstance(value, Success):
-            if not isinstance(value.data, component.data_type):
-                raise TypeError(f"Component expects result data of type {component.data_type}")
+        if isinstance(retval, ContainerFailure):
+            raise MonitoredContainerError(retval.container)
 
-            return value.data
+        if isinstance(retval, Failure):
+            raise InternalComponentError(retval.msg)
 
-        if isinstance(value, Failure):
-            raise InternalComponentError(value.msg)
-
-        raise TypeError(f"Unexpected type {type(value)} returned from component {component}")
+        return retval.data
 
     @typing_extensions.override
     def stop(self) -> None:
