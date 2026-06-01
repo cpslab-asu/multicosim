@@ -255,7 +255,7 @@ async def _ensure_running(containers: Iterable[Container]):
         await asyncio.sleep(0)
 
 
-async def _wait_for_exit(container: Container):
+async def _wait_for_exit(container: Container) -> None:
     logger = logging.getLogger("multicosim.containers.waiting")
     logger.addHandler(logging.NullHandler())
 
@@ -408,7 +408,7 @@ class Simulation(_Simulation):
         raise TypeError(f"Unexpected type {type(value)} returned from component {component}")
 
     @typing_extensions.override
-    def stop(self):
+    def stop(self) -> None:
         for child in self.children.values():
             child.container.stop()
 
@@ -434,7 +434,7 @@ class Simulator(_Simulator[Context, Simulation]):
 
     def add_component(
         self, component: BaseComponent, depends: Iterable[BaseComponent] | None = None
-    ):
+    ) -> None:
         """Add a component to the simulation.
 
         A list of dependencies D can also be provided alongside the component c which represents the
@@ -520,7 +520,7 @@ class Server(typing.Generic[MsgT, DataT]):
 
         return self.func(msg)
 
-    def listen(self, port: int):
+    def listen(self, port: int) -> None:
         """Start the server waiting for the required message.
 
         This function waits for a message, and then calls the user-provided function, and finally

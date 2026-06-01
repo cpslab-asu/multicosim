@@ -93,7 +93,7 @@ class Simulation(_simulations.Simulation):
         )
 
     @typing_extensions.override
-    def stop(self):
+    def stop(self) -> None:
         self.simulation.stop()
 
 

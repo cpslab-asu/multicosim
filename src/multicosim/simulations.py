@@ -20,6 +20,7 @@ which requires a `stop` method that is used to terminate the simulation of the c
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Generator
 from typing import Protocol, TypeVar
 
 EnvT = TypeVar("EnvT", contravariant=True)
@@ -32,7 +33,7 @@ class Simulation(Protocol):
     terminating the simulation and freeing all of the resources in use.
     """
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the simulation."""
         ...
 
@@ -58,7 +59,7 @@ class Simulator(Protocol[EnvT_co, SimT]):
         ...
 
     @contextlib.contextmanager
-    def run(self):
+    def run(self) -> Generator[SimT, None, None]:
         sys = self.start()
 
         try:
