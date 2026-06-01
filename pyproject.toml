@@ -134,3 +134,18 @@ files = [
     "ardupilot/src/*.py",
 ]
 
+[tool.zuban]
+python_version = "3.10"
+mypy_path = "stubs"
+mode = "default"
+strict = true
+untyped_function_return_mode = "inferred"
+files = [
+    "src/**/*.py",
+    "stubs/**/*.pyi",
+    "tests/**/*.py",
+    "examples/**/*.py",
+    "gazebo/src/*.py",
+    "px4/src/*.py",
+    "ardupilot/src/*.py",
+]
