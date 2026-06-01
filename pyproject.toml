@@ -55,6 +55,7 @@ examples = [
 types = [
     "mypy>=1.19.1",
     "types-docker>=7.1.0.20260109",
+    "types-lxml>=2026.2.16",
     "zuban>=0.7.2",
 ]
 lint = [

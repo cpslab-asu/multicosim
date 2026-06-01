@@ -75,7 +75,7 @@ def model_sensors(model: sdf.Model) -> Iterable[sdf.Sensor]:
             yield joint.sensor_by_index(j)
 
 
-def update_model_sensor_topics(model: sdf.Model, topics: Iterable[tuple[str, str]]):
+def update_model_sensor_topics(model: sdf.Model, topics: Iterable[tuple[str, str]]) -> None:
     topics_map = dict(topics)
 
     for sensor in model_sensors(model):
@@ -97,8 +97,10 @@ class ModelNotFoundError(Exception):
 
 
 def set_sensor_topics(
-    model_dirs: list[pathlib.Path], model: str, topics: Iterable[tuple[str, str]]
-):
+    model_dirs: list[pathlib.Path],
+    model: str,
+    topics: Iterable[tuple[str, str]],
+) -> None:
     for model_dir in model_dirs:
         for m in model_dir.iterdir():
             if m.name == model:
@@ -129,7 +131,7 @@ def group_sensor_topics(mappings: list[tuple[str, str, str]]) -> dict[str, list[
     return groups
 
 
-def run_gazebo(ctx: click.Context, *, engine: xml.Element):
+def run_gazebo(ctx: click.Context, *, engine: xml.Element) -> None:
     config = ctx.find_object(Config)
 
     if not config:
@@ -143,11 +145,11 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element):
 
     with subprocess.Popen(args=cmd, shell=True, executable="/usr/bin/bash") as proc:
 
-        def shutdown():
+        def shutdown() -> None:
             proc.kill()
             proc.wait()
 
-        def handle(signum: int, frame: FrameType | None):
+        def handle(signum: int, frame: FrameType | None) -> None:
             shutdown()
 
         signal.signal(signal.SIGTERM, handle)
@@ -191,7 +193,7 @@ def gazebo(
     *,
     headless: bool,
     verbose: bool,
-):
+) -> None:
     topic_groups = group_sensor_topics(sensor_topics)
 
     for model, topics in topic_groups.items():
@@ -207,7 +209,7 @@ ODESolver: TypeAlias = Literal["quick", "world"]
 @click.pass_context
 @click.option("-s", "--solver", type=click.Choice(["quick", "world"]), default="quick")
 @click.option("-i", "--iterations", type=int, default=50)
-def ode(ctx: click.Context, solver: ODESolver, iterations: int):
+def ode(ctx: click.Context, solver: ODESolver, iterations: int) -> None:
     engine_elem = xml.Element("ode")
     solver_elem = xml.SubElement(engine_elem, "solver")
     type_elem = xml.SubElement(solver_elem, "type")
@@ -224,7 +226,7 @@ DartSolver: TypeAlias = Literal["dantzig", "pgs"]
 @gazebo.command("dart")
 @click.pass_context
 @click.option("-s", "--solver", type=click.Choice(["dantzig", "pgs"]), default="dantzig")
-def dart(ctx: click.Context, solver: DartSolver):
+def dart(ctx: click.Context, solver: DartSolver) -> None:
     engine_elem = xml.Element("dart")
     solver_elem = xml.SubElement(engine_elem, "solver")
     type_elem = xml.SubElement(solver_elem, "solver_type")
@@ -236,7 +238,7 @@ def dart(ctx: click.Context, solver: DartSolver):
 @gazebo.command("bullet")
 @click.pass_context
 @click.option("-i", "--iterations", type=int, default=50)
-def bullet(ctx: click.Context, iterations: int):
+def bullet(ctx: click.Context, iterations: int) -> None:
     engine_elem = xml.Element("bullet")
     solver_elem = xml.SubElement(engine_elem, "solver")
     type_elem = xml.SubElement(solver_elem, "iters")
@@ -247,7 +249,7 @@ def bullet(ctx: click.Context, iterations: int):
 
 @gazebo.command("simbody")
 @click.pass_context
-def simbody(ctx: click.Context):
+def simbody(ctx: click.Context) -> None:
     run_gazebo(ctx, engine=xml.Element("simbody"))
 
 
