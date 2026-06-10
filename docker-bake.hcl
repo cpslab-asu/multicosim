@@ -89,3 +89,32 @@ target "tests-server" {
     "multicosim/tests/server:${MULTICOSIM_VERSION}",
   ]
 }
+
+group "examples" {
+  targets = ["rover"]
+}
+
+group "rover" {
+  targets = ["rover-controller", "rover-gazebo"]
+}
+
+target "rover-controller" {
+  context = "examples/rover-controller"
+  contexts = {
+    base = "target:base"
+    multicosim = "."
+  }
+  tags = [
+    "ghcr.io/cpslab-asu/multicosim/rover/controller:${MULTICOSIM_VERSION}"
+  ]
+}
+
+target "rover-gazebo" {
+  context = "examples/rover-gazebo"
+  contexts = {
+    gazebo = "target:gazebo"
+  }
+  tags = [
+    "ghcr.io/cpslab-asu/multicosim/rover/gazebo:harmonic"
+  ]
+}
