@@ -10,8 +10,7 @@ from .automaton import Model, euclidean_distance
 
 
 class Magnet(Protocol):
-    def offset(self, time: float, model: Model) -> float:
-        ...
+    def offset(self, time: float, model: Model) -> float: ...
 
 
 @dataclass()
@@ -39,8 +38,7 @@ class GaussianMagnet(Magnet):
 
 
 class SpeedController:
-    def speed(self, time: float) -> float:
-        ...
+    def speed(self, time: float) -> float: ...
 
 
 @dataclass()

@@ -315,7 +315,6 @@ async def _recv(sock: zmq.asyncio.Socket, response_type: type[DataT]) -> Success
     raise TypeError("Response must be of type `Success | Failure`")
 
 
-
 @attrs.frozen()
 class Simulation(_Simulation):
     context: Context

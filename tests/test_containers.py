@@ -20,7 +20,7 @@ def wait10() -> Component:
 
 
 @pytest.mark.integration
-def test_wait(caplog: pytest.LogCaptureFixture, wait5: Component, wait10: Component):
+def test_wait(caplog: pytest.LogCaptureFixture, wait5: Component, wait10: Component) -> None:
     caplog.set_level(logging.ERROR, "urllib3")
     caplog.set_level(logging.ERROR, "docker")
 
@@ -37,13 +37,15 @@ def test_wait(caplog: pytest.LogCaptureFixture, wait5: Component, wait10: Compon
     sim.add_component(wait10, depends=[wait5])
 
     # wait10 depends on wait5 which will exit first, so an error should be thrown
-    with pytest.raises(containers.MonitoredContainerError):
-        with sim.run() as sys:
-            asyncio.run(sys.wait_for(wait10))
+    with (
+        pytest.raises(containers.MonitoredContainerError),
+        sim.run() as sys,
+    ):
+        asyncio.run(sys.wait_for(wait10))
 
 
 @pytest.mark.integration
-def test_send(caplog: pytest.LogCaptureFixture, wait5: Component):
+def test_send(caplog: pytest.LogCaptureFixture, wait5: Component) -> None:
     caplog.set_level(logging.ERROR, "urllib3")
     caplog.set_level(logging.ERROR, "docker")
 
@@ -62,6 +64,8 @@ def test_send(caplog: pytest.LogCaptureFixture, wait5: Component):
     with sim.run() as sys:
         _ = asyncio.run(sys.send(server, 3))
 
-    with pytest.raises(containers.MonitoredContainerError):
-        with sim.run() as sys:
-            _ = asyncio.run(sys.send(server, 6))
+    with (
+        pytest.raises(containers.MonitoredContainerError),
+        sim.run() as sys,
+    ):
+        _ = asyncio.run(sys.send(server, 6))

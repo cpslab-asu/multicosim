@@ -203,16 +203,16 @@ class NGC(Rover):
     _magnetometer: MagnetometerHandler = field()
     _servos: Publisher = field()
     _velocity: float = field(default=0.0, init=False)
-    _steering_angle: float  = field(default=0.0, init=False)
+    _steering_angle: float = field(default=0.0, init=False)
 
     @property
     def _heading(self) -> float:
         x, y, _ = self._magnetometer.vector
 
         if y > 0:
-            heading_ = 90 - (atan(x/y) * 180/pi)
+            heading_ = 90 - (atan(x / y) * 180 / pi)
         elif y < 0:
-            heading_ = 270 - (atan(x/y) * 180/pi)
+            heading_ = 270 - (atan(x / y) * 180 / pi)
         elif x > 0:
             heading_ = 180.0
         else:
@@ -302,7 +302,7 @@ def _pose_handler(
     node: InitializedNode,
     world: str,
     *,
-    name:str,
+    name: str,
 ) -> PoseHandler:
     pose = PoseHandler(name)
     pose_options = SubscribeOptions()
@@ -313,11 +313,12 @@ def _pose_handler(
 
     return pose
 
+
 def _magnetometer_handler(
     node: InitializedNode,
     world: str,
     *,
-    name:str,
+    name: str,
 ) -> MagnetometerHandler:
     topic = f"/world/{world}/model/{name}/link/base_link/sensor/magnetometer_sensor/magnetometer"
     magnetometer = MagnetometerHandler()

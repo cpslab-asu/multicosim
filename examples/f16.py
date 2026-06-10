@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Dict, Literal
+from typing import Literal, TypeAlias
 
 import attrs
 from aerobench import run_f16_sim as f16
 from aerobench.examples.gcas import gcas_autopilot as gcas
 from aerobench.highlevel.autopilot import Autopilot
 from aerobench.util import StateIndex
-from typing_extensions import TypeAlias, override
+from typing_extensions import override
 
 from multicosim.simulations import CommunicationNode, Component
 
@@ -38,7 +38,7 @@ class State:
 
 
 @attrs.define()
-class GCASNode(CommunicationNode[State, Dict[float, Dict[str, float]]]):
+class GCASNode(CommunicationNode[State, dict[float, dict[str, float]]]):
     autopilot: Autopilot
     integrator: Integrator
     step_size: float
@@ -76,7 +76,7 @@ class GCASNode(CommunicationNode[State, Dict[float, Dict[str, float]]]):
                 "east": state[StateIndex.POS_E],
                 "altitude": state[StateIndex.ALT],
             }
-            for time, state in zip(results["times"], results["states"])
+            for time, state in zip(results["times"], results["states"], strict=True)
         }
 
     @override
@@ -101,6 +101,6 @@ class GCASComponent(Component[None, GCASNode]):
 if __name__ == "__main__":
     gcas = GCASComponent()
     initial_state = State()  # type: ignore
-    
+
     node = gcas.start(None)
     result = node.send(initial_state)

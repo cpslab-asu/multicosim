@@ -27,12 +27,10 @@ class Model(typing.Protocol):
     """Wrapper class to avoid setting rover properties unintentionally in states."""
 
     @property
-    def position(self) -> Position:
-        ...
+    def position(self) -> Position: ...
 
     @property
-    def heading(self) -> float:
-        ...
+    def heading(self) -> float: ...
 
 
 class Action(enum.IntEnum):
@@ -44,8 +42,9 @@ class Action(enum.IntEnum):
 @dc.dataclass(frozen=True, slots=True)
 class State(abc.ABC):
     """An abstract system state representing a behavior of the system."""
+
     flags: Flags
-    
+
     @abc.abstractmethod
     def next(self, model: Model, cmd: Command | None) -> State:
         """Advance the system to the next state."""
@@ -130,8 +129,10 @@ class S2(State):
                 flags=dc.replace(self.flags, check_position=False, update_compass=True),
                 initial_heading=model.heading,
             )
-        
-        self.LOGGER.info(f"Rover position: <{position[0]:.4f}, {position[1]:.4f}, {position[2]:.4f}>.")
+
+        self.LOGGER.info(
+            f"Rover position: <{position[0]:.4f}, {position[1]:.4f}, {position[2]:.4f}>."
+        )
         self.LOGGER.info(f"Remaining distance: {7 - distance:.4f}")
         return S2(self.flags, self.initial_position)
 
@@ -141,7 +142,7 @@ class S3(State):
     LOGGER: typing.ClassVar[logging.Logger] = _create_state_logger("S3")
 
     initial_heading: float = dc.field()
-    
+
     def __post_init__(self):
         assert self.flags.autodrive
         assert self.flags.update_compass
@@ -165,12 +166,14 @@ class S3(State):
         else:
             degrees = self.initial_heading - heading
 
-        self.LOGGER.info(f"Current heading: {heading: 0.4f}. Ground truth heading: {model.heading_real:.4f}")
+        self.LOGGER.info(
+            f"Current heading: {heading: 0.4f}. Ground truth heading: {model.heading_real:.4f}"
+        )
 
         if degrees >= 70:
             self.LOGGER.info("Transitioning to S4")
             return S4(flags=dc.replace(self.flags, update_compass=False, update_gps=True))
-        
+
         self.LOGGER.info(f"Degrees to target heading: {70 - degrees}")
         return S3(self.flags, self.initial_heading)
 
@@ -189,7 +192,7 @@ class S4(State):
     @property
     def action(self) -> Action:
         return Action.TURN
-    
+
     def next(self, model: Model, cmd: Command | None) -> State:
         self.LOGGER.info("Transitioning to S5")
         return S5(
@@ -203,7 +206,7 @@ class S5(State):
     LOGGER: typing.ClassVar[logging.Logger] = _create_state_logger("S5")
 
     initial_position: Position
-    
+
     def __post_init__(self):
         assert self.flags.autodrive
         assert self.flags.move
@@ -214,7 +217,7 @@ class S5(State):
     @property
     def action(self) -> Action:
         return Action.DRIVE
-    
+
     def next(self, model: Model, cmd: Command | None) -> State:
         if cmd == 66:
             self.LOGGER.info(f"Received command {cmd}. Transitioning to S7")
@@ -227,7 +230,9 @@ class S5(State):
             self.LOGGER.info("Distance threshold exceeded. Transitioning to S6.")
             return S6(flags=dc.replace(self.flags, autodrive=False, move=False))
 
-        self.LOGGER.info(f"Rover position: <{position[0]:.4f}, {position[1]:.4f}, {position[2]:.4f}>.")
+        self.LOGGER.info(
+            f"Rover position: <{position[0]:.4f}, {position[1]:.4f}, {position[2]:.4f}>."
+        )
         self.LOGGER.info(f"Remaining distance: {7 - distance:.4f}")
         return S5(self.flags, self.initial_position)
 
@@ -245,7 +250,7 @@ class S6(State):
         return True
 
     def next(self, model: Model, cmd: Command | None) -> State:
-         return S6(self.flags)
+        return S6(self.flags)
 
 
 @dc.dataclass(frozen=True, slots=True)
@@ -267,7 +272,7 @@ class S7(State):
         if cmd == 55:
             self.LOGGER.info(f"Command receieved: {cmd}. Transitioning to S9")
             return S9(self.flags)
-        
+
         self.LOGGER.info("Transitioning to S6")
         return S6(flags=dc.replace(self.flags, move=False))
 

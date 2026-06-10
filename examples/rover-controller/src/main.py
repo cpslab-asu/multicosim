@@ -93,7 +93,7 @@ def run(
 @click.group()
 @click.pass_context
 @click.option("-v", "--verbose", is_flag=True)
-def controller(ctx: click.Context, verbose: bool):
+def controller(ctx: click.Context, *, verbose: bool) -> None:
     if verbose:
         basicConfig(level=DEBUG)
     else:

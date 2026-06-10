@@ -32,7 +32,6 @@ class MissionPlan:
 class MissionProgress:
     @property
     def current(self) -> int: ...
-
     @property
     def total(self) -> int: ...
 
