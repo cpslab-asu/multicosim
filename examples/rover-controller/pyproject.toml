@@ -8,15 +8,14 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.9"
 dependencies = [
-    "numpy~=1.26.0"
-]
-
-[dependency-groups]
-container = [
-    "apscheduler~=3.11",
-    "click~=8.1",
-    "pyzmq~=26.2",
+    "numpy",
+    "multicosim",
+    "apscheduler",
+    "click",
 ]
 
 [tool.uv.build-backend]
 module-name = "roverctl"
+
+[tool.uv.sources]
+multicosim = { workspace = true }

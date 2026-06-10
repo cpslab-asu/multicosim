@@ -64,11 +64,11 @@ lint = [
     "ruff>=0.15.12",
 ]
 
-[tool.uv.sources]
-multicosim-rover-controller = { path = "./examples/rover/controller" }
-
 [tool.uv.workspace]
-members = ["px4", "gazebo"]
+members = ["px4", "gazebo", "examples/rover-controller"]
+
+[tool.uv.sources]
+multicosim-rover-controller = { workspace = true }
 
 [tool.ruff]
 line-length = 100
