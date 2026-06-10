@@ -111,7 +111,7 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["multicosim"]
+known-first-party = ["multicosim", "roverctl"]
 split-on-trailing-comma = false
 
 [tool.pytest.ini_options]
