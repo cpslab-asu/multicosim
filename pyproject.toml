@@ -52,6 +52,7 @@ test = [
 ]
 examples = [
     "click>=8.1.8",
+    "matplotlib>=3.10.9",
     "multicosim-rover-controller",
 ]
 types = [
