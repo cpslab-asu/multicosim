@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import pi, pow
+from math import pi
 from typing import Protocol
 
 from numpy import random

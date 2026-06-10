@@ -21,7 +21,7 @@ RUN uv venv \
 RUN uv sync --frozen --group container --no-install-project
 RUN uv pip install /opt/multicosim
 
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04
+FROM base AS final
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="Controller image for MultiCoSim rover example"

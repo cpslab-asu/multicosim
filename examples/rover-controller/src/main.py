@@ -13,7 +13,6 @@ import controller.messages as msgs
 import numpy.random as rand
 import rover
 
-import multicosim as mcs
 import multicosim.docker
 
 

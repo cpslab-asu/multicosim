@@ -6,7 +6,7 @@ from math import atan, pi
 from threading import Event, Lock
 from typing import Literal, NewType
 
-from gz.transport13 import Node, Publisher, SubscribeOptions
+from controller import attacks, automaton
 from gz.math7 import Quaterniond
 from gz.msgs10.actuators_pb2 import Actuators
 from gz.msgs10.boolean_pb2 import Boolean
@@ -14,8 +14,7 @@ from gz.msgs10.double_pb2 import Double
 from gz.msgs10.entity_factory_pb2 import EntityFactory
 from gz.msgs10.magnetometer_pb2 import Magnetometer
 from gz.msgs10.pose_v_pb2 import Pose_V
-
-from controller import attacks, automaton
+from gz.transport13 import Node, Publisher, SubscribeOptions
 
 
 def _pose_logger() -> Logger:
