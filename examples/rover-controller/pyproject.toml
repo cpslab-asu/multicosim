@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.11.20,<0.12"]
+build-backend = "uv_build"
 
 [project]
 name = "multicosim-rover-controller"
@@ -18,6 +18,5 @@ container = [
     "pyzmq~=26.2",
 ]
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["roverctl"]
+[tool.uv.build-backend]
+module-name = "roverctl"
