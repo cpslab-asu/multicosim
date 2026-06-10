@@ -18,10 +18,13 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v5
+      - name: Bake test images # Build test images
+        run: docker buildx bake tests
       - uses: actions/setup-python@v6 # Use setup-python to speed up executions instead of having uv download python
         with:
           python-version: ${{ matrix.python-version }}
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv run --group test pytest
+      - name: Pytest
+        run: uv run --group test pytest
