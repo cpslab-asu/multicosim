@@ -51,9 +51,10 @@ test = [
     "pytest>=8.4.2",
 ]
 examples = [
+    "aerobench",
     "click>=8.1.8",
     "matplotlib>=3.10.9",
-    "multicosim-rover-controller",
+    "roverctl",
 ]
 types = [
     "mypy>=1.19.1",
@@ -69,7 +70,8 @@ lint = [
 members = ["px4", "gazebo", "examples/rover-controller"]
 
 [tool.uv.sources]
-multicosim-rover-controller = { workspace = true }
+roverctl = { workspace = true }
+aerobench = { git = "https://github.com/cpslab-asu/aerobenchvvpython" }
 
 [tool.ruff]
 target-version = "py310"
