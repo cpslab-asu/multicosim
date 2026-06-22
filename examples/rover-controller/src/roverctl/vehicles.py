@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from logging import Logger, NullHandler, getLogger
 from math import atan, pi
 from threading import Event, Lock
-from typing import Literal, NewType
+from typing import Any, Literal, NewType
 
-from controller import attacks, automaton
+
 from gz.math7 import Quaterniond
 from gz.msgs10.actuators_pb2 import Actuators
 from gz.msgs10.boolean_pb2 import Boolean
@@ -15,6 +16,9 @@ from gz.msgs10.entity_factory_pb2 import EntityFactory
 from gz.msgs10.magnetometer_pb2 import Magnetometer
 from gz.msgs10.pose_v_pb2 import Pose_V
 from gz.transport13 import Node, Publisher, SubscribeOptions
+from typing_extensions import override
+
+from . import attacks, automaton
 
 
 def _pose_logger() -> Logger:
@@ -30,7 +34,7 @@ class MagnetometerHandler:
     _lock: Lock = field(default_factory=Lock, init=False)
     _ready: Event = field(default_factory=Event, init=False)
 
-    def __call__(self, msg: Magnetometer):
+    def __call__(self, msg: Magnetometer) -> None:
         with self._lock:
             field = msg.field_tesla
             self._vector = (field.x, field.y, field.z)
@@ -73,7 +77,7 @@ class PoseHandler:
     _logger: Logger = field(default_factory=_pose_logger, init=False)
     _ready: Event = field(default_factory=Event, init=False)
 
-    def __call__(self, msg: Pose_V):
+    def __call__(self, msg: Pose_V) -> None:
         for pose in msg.pose:
             if pose.name == self.name:
                 self._logger.debug(f"Received pose: {pose}")
@@ -118,7 +122,7 @@ class PoseHandler:
         with self._lock:
             return self._position
 
-    def wait(self):
+    def wait(self) -> None:
         self._ready.wait()
 
 
@@ -135,7 +139,7 @@ InitializedNode = NewType("InitializedNode", Node)
 @dataclass()
 class Rover(automaton.Model):
     _node: InitializedNode = field()
-    _motors: Publisher = field()
+    _motors: Publisher[Actuators] = field()
     _pose: PoseHandler = field()
     _logger: Logger = field(default_factory=_rover_logger, init=False)
 
@@ -144,18 +148,20 @@ class Rover(automaton.Model):
         return self._pose.clock
 
     @property
+    @override
     def position(self) -> tuple[float, float, float]:
         return self._pose.position
 
     @property
-    def heading(self) -> float:
-        return self._pose.heading
+    @override
+    def heading(self) -> automaton.Heading:
+        return automaton.Heading.unmodified(self._pose.heading)
 
     @property
     def roll(self) -> float:
         return self._pose.roll
 
-    def wait(self):
+    def wait(self) -> None:
         self._pose.wait()
 
 
@@ -169,7 +175,7 @@ class R1(Rover):
         return self._omega or 0.0
 
     @omega.setter
-    def omega(self, target: float):
+    def omega(self, target: float) -> None:
         if self._omega is None or target != self._omega:
             msg = Actuators()
             msg.velocity.append(target)
@@ -185,7 +191,7 @@ class R1(Rover):
         return self._velocity or 0.0
 
     @velocity.setter
-    def velocity(self, target: float):
+    def velocity(self, target: float) -> None:
         if self._velocity is None or target != self._velocity:
             msg = Actuators()
             msg.velocity.append(-target)
@@ -201,7 +207,7 @@ class R1(Rover):
 class NGC(Rover):
     _magnet: attacks.Magnet = field()
     _magnetometer: MagnetometerHandler = field()
-    _servos: Publisher = field()
+    _servos: Publisher[Double] = field()
     _velocity: float = field(default=0.0, init=False)
     _steering_angle: float = field(default=0.0, init=False)
 
@@ -221,19 +227,19 @@ class NGC(Rover):
         return heading_
 
     @property
-    def heading_real(self) -> float:
-        return self._heading
+    @override
+    def heading(self) -> automaton.Heading:
+        actual = self._heading
+        value = actual + self._magnet.offset(self.clock, self)
 
-    @property
-    def heading(self) -> float:
-        return self._heading + self._magnet.offset(self.clock, self)
+        return automaton.Heading(value, actual)
 
     @property
     def steering_angle(self) -> float:
         return self._steering_angle
 
     @steering_angle.setter
-    def steering_angle(self, target: float):
+    def steering_angle(self, target: float) -> None:
         if not -0.5 <= target <= 0.5:
             raise ValueError("Steering angle must be within interval [-0.5, 0.5]")
 
@@ -250,7 +256,7 @@ class NGC(Rover):
         return self._velocity
 
     @velocity.setter
-    def velocity(self, target: float):
+    def velocity(self, target: float) -> None:
         if target != self._velocity:
             msg = Actuators()
             msg.velocity.append(target)
@@ -259,7 +265,8 @@ class NGC(Rover):
             self._velocity = target
             self._logger.info(f"Setting velocity to {target}")
 
-    def wait(self):
+    @override
+    def wait(self) -> None:
         self._pose.wait()
         self._magnetometer.wait()
 

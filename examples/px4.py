@@ -12,8 +12,25 @@ if __name__ == "__main__":
         ]
     )
 
-    firmware = px4.Firmware()
     gazebo = gz.Options()
+    firmware = px4.Firmware()
+
+    # It is also possible to create a firmware component directly for more customization
+    # using the standard constructr arguments for `containers.Component`.
+    #
+    # firmware = px4.FirmwareComponent(
+    #     ....
+    # )
+    #
+    # In practice however, this is never really necessary unless you are trying not to
+    # use the stock PX4 firmware. You can create a default component implementation and
+    # customize it to avoid having to specify all the details manually.
+    #
+    # gazebo = gz.Options()
+    # firmware = px4.Firmware()
+    # component = px4.FirmwareComponent.from_firmware(firmware, gazebo)
+    # component.image = "..."
+
     sim = px4.PX4(firmware, gazebo)
 
     with sim.run() as sys:

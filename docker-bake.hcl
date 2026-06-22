@@ -99,10 +99,9 @@ group "rover" {
 }
 
 target "rover-controller" {
-  context = "examples/rover-controller"
+  dockerfile = "examples/rover-controller/Dockerfile"
   contexts = {
     base = "target:base"
-    multicosim = "."
   }
   tags = [
     "ghcr.io/cpslab-asu/multicosim/rover/controller:${MULTICOSIM_VERSION}"

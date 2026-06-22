@@ -155,7 +155,7 @@ MsgT = typing.TypeVar("MsgT")
 DataT = typing.TypeVar("DataT")
 
 
-@attrs.define()
+@attrs.frozen()
 class ConnectedComponent(Component, typing.Generic[MsgT, DataT]):
     """A container-based simulation component that supports interaction.
 
@@ -206,7 +206,6 @@ class Gazebo(BaseComponent):
     image: str = attrs.field(default="ghcr.io/cpslab-asu/multicosim/gazebo:harmonic")
     template: str = attrs.field(default="/app/resources/worlds/default.sdf")
     model_dir: str = attrs.field(default="/app/resources/models")
-    world: str = attrs.field(default="generated")
     options: gazebo.Options = attrs.field(factory=gazebo.Options)
 
     @typing_extensions.override
@@ -215,7 +214,7 @@ class Gazebo(BaseComponent):
             "gazebo",
             "--verbose",
             f"--base {self.template}",
-            f"--world {self.world}",
+            f"--world {self.options.world}",
             f"--step-size {self.options.step_size}",
             f"--model-dir {self.model_dir}",
         ]

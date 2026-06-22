@@ -7,6 +7,8 @@ import logging
 import math
 import typing
 
+from typing_extensions import Self, override
+
 Position: typing.TypeAlias = tuple[float, float, float]
 Command: typing.TypeAlias = typing.Literal[55, 66]
 Direction: typing.TypeAlias = typing.Literal[-1, 0, 1]
@@ -23,6 +25,16 @@ class Flags:
     move: bool = dc.field(default=False)
 
 
+@dc.dataclass()
+class Heading:
+    value: float
+    actual: float
+
+    @classmethod
+    def unmodified(cls, value: float) -> Self:
+        return cls(value, value)
+
+
 class Model(typing.Protocol):
     """Wrapper class to avoid setting rover properties unintentionally in states."""
 
@@ -30,7 +42,7 @@ class Model(typing.Protocol):
     def position(self) -> Position: ...
 
     @property
-    def heading(self) -> float: ...
+    def heading(self) -> Heading: ...
 
 
 class Action(enum.IntEnum):
@@ -73,13 +85,14 @@ class S1(State):
     time: float = dc.field()
     step_size: float = dc.field()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.flags.check_position
         assert not self.flags.autodrive
         assert not self.flags.update_compass
         assert not self.flags.update_gps
         assert not self.flags.move
 
+    @override
     def next(self, model: Model, cmd: Command | None) -> State:
         if self.time >= 5:
             self.LOGGER.info("Wait time exceeded. Transitioning to S2.")
@@ -104,7 +117,7 @@ class S2(State):
 
     initial_position: tuple[float, float, float] = dc.field()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.flags.check_position
         assert self.flags.autodrive
         assert not self.flags.update_compass
@@ -112,9 +125,11 @@ class S2(State):
         assert not self.flags.move
 
     @property
+    @override
     def action(self) -> Action:
         return Action.DRIVE
 
+    @override
     def next(self, model: Model, cmd: Command | None) -> State:
         if cmd == 66:
             self.LOGGER.info(f"Received command {cmd}, transitioning to S6")
@@ -127,7 +142,7 @@ class S2(State):
             self.LOGGER.info("Distance threshold exceeded. Transitioning to S3.")
             return S3(
                 flags=dc.replace(self.flags, check_position=False, update_compass=True),
-                initial_heading=model.heading,
+                initial_heading=model.heading.value,
             )
 
         self.LOGGER.info(
@@ -143,7 +158,7 @@ class S3(State):
 
     initial_heading: float = dc.field()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.flags.autodrive
         assert self.flags.update_compass
         assert not self.flags.check_position
@@ -151,9 +166,11 @@ class S3(State):
         assert not self.flags.move
 
     @property
+    @override
     def action(self) -> Action:
         return Action.TURN
 
+    @override
     def next(self, model: Model, cmd: Command | None) -> State:
         if cmd == 66:
             self.LOGGER.info(f"Received command {cmd}. Transitioning to S8")
@@ -161,13 +178,13 @@ class S3(State):
 
         heading = model.heading
 
-        if heading > self.initial_heading:
-            degrees = self.initial_heading + (360 - heading)
+        if heading.value > self.initial_heading:
+            degrees = self.initial_heading + (360 - heading.value)
         else:
-            degrees = self.initial_heading - heading
+            degrees = self.initial_heading - heading.value
 
         self.LOGGER.info(
-            f"Current heading: {heading: 0.4f}. Ground truth heading: {model.heading_real:.4f}"
+            f"Current heading: {heading.value: 0.4f}. Ground truth heading: {heading.actual:.4f}"
         )
 
         if degrees >= 70:
@@ -182,7 +199,7 @@ class S3(State):
 class S4(State):
     LOGGER: typing.ClassVar[logging.Logger] = _create_state_logger("S4")
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.flags.autodrive
         assert self.flags.update_gps
         assert not self.flags.update_compass
@@ -190,9 +207,11 @@ class S4(State):
         assert not self.flags.move
 
     @property
+    @override
     def action(self) -> Action:
         return Action.TURN
 
+    @override
     def next(self, model: Model, cmd: Command | None) -> State:
         self.LOGGER.info("Transitioning to S5")
         return S5(
@@ -207,7 +226,7 @@ class S5(State):
 
     initial_position: Position
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.flags.autodrive
         assert self.flags.move
         assert not self.flags.update_gps
@@ -215,9 +234,11 @@ class S5(State):
         assert not self.flags.check_position
 
     @property
+    @override
     def action(self) -> Action:
         return Action.DRIVE
 
+    @override
     def next(self, model: Model, cmd: Command | None) -> State:
         if cmd == 66:
             self.LOGGER.info(f"Received command {cmd}. Transitioning to S7")
@@ -239,16 +260,18 @@ class S5(State):
 
 @dc.dataclass(frozen=True, slots=True)
 class S6(State):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert not self.flags.autodrive
         assert not self.flags.move
         assert not self.flags.update_gps
         assert not self.flags.update_compass
         assert not self.flags.check_position
 
+    @override
     def is_terminal(self) -> bool:
         return True
 
+    @override
     def next(self, model: Model, cmd: Command | None) -> State:
         return S6(self.flags)
 
@@ -257,7 +280,7 @@ class S6(State):
 class S7(State):
     LOGGER: typing.ClassVar[logging.Logger] = _create_state_logger("S7")
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.flags.move
         assert not self.flags.autodrive
         assert not self.flags.update_gps
@@ -265,9 +288,11 @@ class S7(State):
         assert not self.flags.check_position
 
     @property
+    @override
     def action(self) -> Action:
         return Action.DRIVE
 
+    @override
     def next(self, model: Model, cmd: Command | None) -> State:
         if cmd == 55:
             self.LOGGER.info(f"Command receieved: {cmd}. Transitioning to S9")
@@ -281,7 +306,7 @@ class S7(State):
 class S8(State):
     LOGGER: typing.ClassVar[logging.Logger] = _create_state_logger("S8")
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.flags.update_compass
         assert not self.flags.autodrive
         assert not self.flags.check_position
@@ -289,9 +314,11 @@ class S8(State):
         assert not self.flags.move
 
     @property
+    @override
     def action(self) -> Action:
         return Action.TURN
 
+    @override
     def next(self, model: Model, cmd: Command | None) -> State:
         self.LOGGER.info("Transitioning to S7")
         return S7(flags=dc.replace(self.flags, move=True, update_compass=False))
@@ -299,27 +326,29 @@ class S8(State):
 
 @dc.dataclass(frozen=True, slots=True)
 class S9(State):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert not self.flags.move
         assert not self.flags.update_compass
         assert not self.flags.autodrive
         assert not self.flags.check_position
         assert not self.flags.update_gps
 
+    @override
     def is_terminal(self) -> bool:
         return True
 
+    @override
     def next(self, model: Model, cmd: Command | None) -> State:
         return S9(self.flags)
 
 
 class Automaton:
     def __init__(self, model: Model, step_size: float):
-        self.model = model
+        self.model: Model = model
         self.state: State = S1(flags=Flags(), time=0.0, step_size=step_size)
         self.history: list[State] = []
 
-    def step(self, cmd: Command | None):
+    def step(self, cmd: Command | None) -> None:
         self.history.append(self.state)
         self.state = self.state.next(self.model, cmd)
 

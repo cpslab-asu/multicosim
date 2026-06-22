@@ -32,4 +32,6 @@ COPY ./src ${GZ_ROOT}/src
 COPY ./resources ${GZ_ROOT}/resources
 WORKDIR /app
 
+ENV GZ_SIM_RESOURCE_PATH=/app/resources/worlds
+
 CMD ["/usr/local/bin/gazebo"]

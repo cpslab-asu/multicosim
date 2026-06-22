@@ -3,10 +3,12 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 
-from controller import attacks, automaton
+from typing_extensions import override
+
+from . import attacks, automaton
 
 
-@dataclass()
+@dataclass(frozen=True)
 class Step:
     time: float = field()
     position: tuple[float, float, float] = field()
@@ -15,18 +17,17 @@ class Step:
     state: automaton.State = field()
 
 
-@dataclass()
+@dataclass(frozen=True)
 class Result(Iterable[Step]):
     history: list[Step] = field()
 
+    @override
     def __iter__(self) -> Iterator[Step]:
         return iter(self.history)
 
 
 @dataclass()
 class Start:
-    world: str = field()
-    frequency: int = field()
-    magnet: attacks.Magnet | None = field()
-    speed: attacks.SpeedController | None = field()
-    commands: Iterable[automaton.Command | None] = field()
+    magnet: attacks.Magnet | None = field(default=None)
+    speed: attacks.SpeedController | None = field(default=None)
+    commands: Iterable[automaton.Command] | None = field(default=None)

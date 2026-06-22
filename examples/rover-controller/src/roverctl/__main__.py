@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from itertools import repeat
 from logging import DEBUG, INFO, WARNING, Logger, NullHandler, basicConfig, getLogger
 from pprint import pprint
 
 import apscheduler.schedulers.blocking as sched
 import click
-import controller.attacks as atk
-import controller.automaton as ha
-import controller.messages as msgs
 import numpy.random as rand
-import rover
+import multicosim.containers
 
-import multicosim.docker
+from . import attacks as atk
+from . import automaton as ha
+from . import messages as msgs
+from . import vehicles
 
 
 class PublisherError(Exception):
@@ -25,7 +25,7 @@ def run(
     frequency: int,
     magnet: atk.Magnet | None,
     speed: atk.SpeedController | None,
-    commands: Iterable[ha.Command | None],
+    commands: Iterable[ha.Command] | None,
 ) -> list[msgs.Step]:
     logger = getLogger("controller.simulation")
     logger.addHandler(NullHandler())
@@ -39,23 +39,23 @@ def run(
     speed_ctl = speed or atk.FixedSpeed(5.0)
     logger.info(f"Speed: {speed_ctl}")
 
-    vehicle = rover.ngc(world, magnet=magnet)
+    vehicle = vehicles.ngc(world, magnet=magnet)
     controller = ha.Automaton(vehicle, step_size)
     scheduler = sched.BlockingScheduler()
     history: list[msgs.Step] = []
-    cmds = iter(commands)
+    cmds: Iterator[ha.Command | None] = iter(commands) if commands is not None else repeat(None)
 
     vehicle.wait()
     tstart = vehicle.clock
 
-    def update():
+    def update() -> None:
         tsim = vehicle.clock - tstart
         logger.debug("Running controller step.")
         history.append(
             msgs.Step(
                 time=tsim,
                 position=vehicle.position,
-                heading=vehicle.heading,
+                heading=vehicle.heading.value,
                 roll=vehicle.roll,
                 state=controller.state,
             )
@@ -82,7 +82,7 @@ def run(
             controller.step(next(cmds))
 
     logger.debug("Creating controller scheduler job")
-    scheduler.add_job(update, "interval", seconds=step_size, id="control_loop")
+    _ = scheduler.add_job(update, "interval", seconds=step_size, id="control_loop")
 
     logger.debug("Starting scheduler")
     scheduler.start()
@@ -108,14 +108,14 @@ def controller(ctx: click.Context, *, verbose: bool) -> None:
     ctx.obj["logger"] = logger
 
 
-@multicosim.docker.firmware(msgtype=msgs.Start)
+@multicosim.containers.server(msgtype=msgs.Start)
 def server(msg: msgs.Start) -> msgs.Result:
     return msgs.Result(run(msg.world, msg.frequency, msg.magnet, msg.speed, msg.commands))
 
 
 @controller.command()
 @click.option("-p", "--port", type=int, default=5556)
-def serve(port: int):
+def serve(port: int) -> None:
     server.listen(port)
 
 
@@ -138,12 +138,12 @@ def start(
     frequency: int,
     speed: float,
     magnet: tuple[float, float] | None,
-):
+) -> None:
     logger: Logger = ctx.obj["logger"]
     logger.info("No port specified, starting controller using defaults.")
     magnet_: atk.Magnet = _create_magnet(magnet)
     speed_ = atk.FixedSpeed(speed)
-    history = run(world, frequency, magnet_, speed_, commands=repeat(None))
+    history = run(world, frequency, magnet_, speed_, commands=None)
 
     pprint(history)
 

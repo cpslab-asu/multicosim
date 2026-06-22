@@ -5,6 +5,7 @@ from math import pi
 from typing import Protocol
 
 from numpy import random
+from typing_extensions import override
 
 from .automaton import Model, euclidean_distance
 
@@ -17,6 +18,7 @@ class Magnet(Protocol):
 class StationaryMagnet(Magnet):
     magnitude: float
 
+    @override
     def offset(self, time: float, model: Model) -> float:
         return self.magnitude
 
@@ -27,6 +29,11 @@ class GaussianMagnet(Magnet):
     y: float
     rng: random.Generator
 
+    @property
+    def position(self) -> tuple[float, float]:
+        return (self.x, self.y)
+
+    @override
     def offset(self, time: float, model: Model) -> float:
         mu_0 = 4 * pi * 10e-7
         m = 0.8
@@ -37,7 +44,7 @@ class GaussianMagnet(Magnet):
         return self.rng.normal(0.0, 1.0) * scale
 
 
-class SpeedController:
+class SpeedController(Protocol):
     def speed(self, time: float) -> float: ...
 
 
@@ -45,5 +52,6 @@ class SpeedController:
 class FixedSpeed(SpeedController):
     magnitude: float
 
+    @override
     def speed(self, time: float) -> float:
         return self.magnitude

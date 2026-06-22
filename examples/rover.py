@@ -1,27 +1,24 @@
 from __future__ import annotations
 
-import itertools
-import pathlib
+import asyncio
 import typing
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal, TypeAlias
 
 import click
 import numpy.random as rand
-import staliro
-from controller.attacks import FixedSpeed, GaussianMagnet
-from controller.messages import Result, Start
 from matplotlib import patches as patches
 from matplotlib import pyplot as plt
-from staliro import Trace
+from typing_extensions import override
 
-import multicosim
-import multicosim.docker
+from multicosim import __version__, containers
+from roverctl.attacks import FixedSpeed, GaussianMagnet
+from roverctl.messages import Result, Start
 
 
 @dataclass()
 class Plot:
-    trajectory: Trace[list[float]]
+    trajectory: dict[float, list[float]]
     magnet: tuple[float, float] | None
     color: Literal["r", "g", "b", "k"] = "k"
 
@@ -44,8 +41,7 @@ def plot(*plots: Plot) -> None:
 
     for plot in plots:
         # ax.add_patch(patches.Circle(plot.magnet, 0.1, linewidth=1, edgecolor="b"))
-
-        times = list(plot.trajectory.times)
+        times = list(plot.trajectory.keys())
         ax.plot(
             [plot.trajectory[time][0] for time in times],
             [plot.trajectory[time][1] for time in times],
@@ -56,55 +52,76 @@ def plot(*plots: Plot) -> None:
 
 
 PORT: typing.Final[int] = 5556
-GZ_BASE: typing.Final[pathlib.Path] = pathlib.Path("resources/worlds/default.sdf")
-GZ_WORLD: typing.Final[pathlib.Path] = pathlib.Path("/tmp/generated.sdf")
+
+_Param: TypeAlias = click.Parameter | None
+_Context: TypeAlias = click.Context | None
+
+
+class Magnet(click.ParamType[GaussianMagnet]):
+    name = "Magnet"
+
+    @override
+    def convert(self, value: Any, param: _Param, ctx: _Context) -> GaussianMagnet:
+        if not isinstance(value, tuple):
+            self.fail("Expected multiple values")
+
+        return GaussianMagnet(value[0], value[1], rand.default_rng())
+
+
+def maybe_position(m: GaussianMagnet | None) -> tuple[float, float] | None:
+    if m is not None:
+        return m.position
+
+    return None
 
 
 @click.command("simulation")
 @click.option("-f", "--frequency", "freq", type=int, default=2)
 @click.option("-s", "--speed", type=float, default=5.0)
-@click.option("-m", "--magnet", type=float, nargs=2, default=None)
+@click.option("-m", "--magnet", type=Magnet, nargs=2, default=None)
 @click.option("-v", "--verbose", is_flag=True)
-def simulation(
-    speed: float,
-    freq: int,
-    magnet: tuple[float, float] | None,
-    *,
-    verbose: bool,
-) -> None:
-    if magnet:
-        rng = rand.default_rng()
-        magnet_ = GaussianMagnet(x=magnet[0], y=magnet[1], rng=rng)
-    else:
-        magnet_ = None
-
-    prefix = "controller"
-
-    if verbose:
-        prefix = f"{prefix} --verbose"
-
-    fw = multicosim.docker.FirmwareContainerComponent(
-        image="ghcr.io/cpslab-asu/multicosim/rover/controller:latest",
-        command=f"{prefix} serve --port {PORT}",
-        port=PORT,
-        message_type=Start,
-        response_type=Result,
-    )
-
-    gz = multicosim.docker.GazeboContainerComponent(
+def simulation(speed: float, freq: int, magnet: GaussianMagnet | None, *, verbose: bool) -> None:
+    gz = containers.Gazebo(
         image="ghcr.io/cpslab-asu/multicosim/rover/gazebo:harmonic",
     )
 
-    sim = multicosim.docker.ContainerSimulator(gz)
-    fw_id = sim.add(fw)
-    sys = sim.start()
-    msg = Start(gz.world, freq, magnet_, FixedSpeed(magnitude=speed), itertools.repeat(None))
-    res = sys.get(fw_id).send(msg)
+    ctl_args = ["python3", "-m", "roverctl"]
+
+    if verbose:
+        ctl_args.append("--verbose")
+
+    ctl_args.extend([
+        "serve",
+        "--port",
+        str(PORT),
+        "--world",
+        gz.options.world,
+        "--frequency",
+        str(freq),
+    ])
+
+    ctl_img = f"ghcr.io/cpslab-asu/multicosim/rover/controller:{__version__}",
+    ctl = containers.ConnectedComponent(
+        image=ctl_img,
+        command=" ".join(ctl_args),
+        port=PORT,
+        msg_type=Start,
+        data_type=Result,
+    )
+
+    sim = containers.Simulator()
+    sim.add_component(gz)
+    sim.add_component(ctl, depends=[gz])
+
+    with sim.run() as sys:
+        msg = Start(magnet, FixedSpeed(magnitude=speed))
+        res = asyncio.run(sys.send(ctl, msg))
+
     p = Plot(
-        magnet=magnet,
-        trajectory=staliro.Trace(
-            {step.time: [step.position[0], step.position[1]] for step in res.history}
-        ),
+        magnet=maybe_position(magnet),
+        trajectory={
+            step.time: [step.position[0], step.position[1]] for step in res.history
+        }
     )
 
     plot(p)

@@ -3,7 +3,7 @@ requires = ["uv_build>=0.11.20,<0.12"]
 build-backend = "uv_build"
 
 [project]
-name = "multicosim-rover-controller"
+name = "roverctl"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.9"
@@ -13,9 +13,6 @@ dependencies = [
     "apscheduler",
     "click",
 ]
-
-[tool.uv.build-backend]
-module-name = "roverctl"
 
 [tool.uv.sources]
 multicosim = { workspace = true }

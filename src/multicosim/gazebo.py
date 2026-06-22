@@ -5,6 +5,7 @@ from functools import singledispatch
 from typing import TypeAlias
 
 import attrs
+import namer
 
 
 @attrs.frozen()
@@ -102,4 +103,5 @@ def _(b: Simbody) -> str:
 @attrs.define()
 class Options:
     backend: Backend = attrs.field(factory=ODE)
-    step_size: float = attrs.field(default=0.001)
+    step_size: float = attrs.field(kw_only=True, default=0.001)
+    world: str = attrs.field(kw_only=True, factory=namer.generate)
