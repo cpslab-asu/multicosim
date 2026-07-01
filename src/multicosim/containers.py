@@ -566,11 +566,12 @@ class Server(typing.Generic[MsgT, DataT]):
             logger.debug("Received configuration message. Running firmware...")
 
             try:
-                result: Success[DataT] | Failure = Success(self.func(msg))
+                success = Success(self.func(msg))
+                socket.send_pyobj(success)
             except Exception as e:
-                result = Failure(str(e))
-
-            socket.send_pyobj(result)
+                failure = Failure(str(e))
+                socket.send_pyobj(failure)
+                raise e
 
 
 A = typing.TypeVar("A")
