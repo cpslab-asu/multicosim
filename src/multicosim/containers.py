@@ -445,7 +445,7 @@ class Simulation(_Simulation):
                     if status["StatusCode"] in {0, 137, 143}:
                         child.container.remove()
 
-        if remove is not "never":
+        if remove != "never":
             self.context.network.remove()
 
 
