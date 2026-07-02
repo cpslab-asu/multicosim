@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import abc
 import asyncio
+import contextlib
 import errno
 import logging
 import os
@@ -52,6 +53,7 @@ from .simulations import Simulation as _Simulation
 from .simulations import Simulator as _Simulator
 
 Container: typing_extensions.TypeAlias = docker.models.containers.Container
+Remove = typing.Literal["always", "if_exit_success", "never"]
 
 
 @attrs.define()
@@ -427,9 +429,24 @@ class Simulation(_Simulation):
         return retval.data
 
     @typing_extensions.override
-    def stop(self) -> None:
+    def stop(self, *, remove: Remove = "if_exit_success"):
         for child in self.children.values():
             child.container.stop()
+
+            match remove:
+                case "always":
+                    child.container.remove()
+                case "never":
+                    pass
+                case _:
+                    status = child.container.wait()
+
+                    # 0 -> ExitSucess, 137 -> SIGKILL, 143 -> SIGTERM
+                    if status["StatusCode"] in {0, 137, 143}:
+                        child.container.remove()
+
+        if remove is not "never":
+            self.context.network.remove()
 
 
 @attrs.define()
@@ -443,6 +460,9 @@ class _Registration:
 
     def start(self, context: Context) -> _ComponentSimulation:
         return _ComponentSimulation(self.component.start(context), self.dependencies)
+
+
+_SimulationGenerator: typing.TypeAlias = typing.Generator[Simulation, None, None]
 
 
 class Simulator(_Simulator[Context, Simulation]):
@@ -498,6 +518,17 @@ class Simulator(_Simulator[Context, Simulation]):
                 s.container.kill()
 
             raise e
+
+    @contextlib.contextmanager
+    @typing_extensions.override
+    def run(self, *, remove: Remove = "if_exit_success") -> _SimulationGenerator:
+        sim = self.start()
+
+        try:
+            yield sim
+        finally:
+            sim.stop(remove=remove)
+
 
 
 @attrs.frozen()
