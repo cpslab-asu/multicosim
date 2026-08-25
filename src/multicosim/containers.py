@@ -92,11 +92,13 @@ class ContainerOptions:
     ports: set[int] = attrs.field()
     files: dict[pathlib.Path, str] = attrs.field()
     tty: bool = attrs.field()
+    name: str | None = attrs.field(default=None)
 
     def start(self, context: Context) -> Container:
         return context.client.containers.run(
             image=self.image,
             command=self.command,
+            name=self.name,
             ports={f"{port}/tcp": None for port in self.ports},
             mounts=[_create_mount(file, target) for file, target in self.files.items()],
             tty=self.tty,
