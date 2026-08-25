@@ -10,15 +10,22 @@ target "base" {
   dockerfile = "ubuntu.Dockerfile"
 }
 
+variable "GAZEBO_VERSION" {
+  default = "jetty"
+}
+
 target "gazebo" {
   context = "./gazebo"
   contexts = {
     base = "target:base"
     multicosim = "."
   }
+  args = {
+    GAZEBO_VERSION = GAZEBO_VERSION
+  }
   dockerfile = "ubuntu.Dockerfile"
   tags = [
-    "ghcr.io/cpslab-asu/multicosim/gazebo:harmonic"
+    "ghcr.io/cpslab-asu/multicosim/gazebo:${GAZEBO_VERSION}"
   ]
 }
 
