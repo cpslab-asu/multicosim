@@ -104,7 +104,7 @@ class ContainerOptions:
         )
 
 
-@attrs.define()
+@attrs.frozen()
 class BaseComponent(_Component[Context, Container], abc.ABC):
     id: ComponentId = attrs.field(init=False, factory=ComponentId)
     image: str = attrs.field()
@@ -118,7 +118,7 @@ class BaseComponent(_Component[Context, Container], abc.ABC):
         return self.to_options().start(context)
 
 
-@attrs.define()
+@attrs.frozen()
 class Component(BaseComponent):
     """A plain container-based simulation component.
 
@@ -190,7 +190,7 @@ class ConnectedComponent(Component, typing.Generic[MsgT, DataT]):
         return options
 
 
-@attrs.define()
+@attrs.frozen()
 class Gazebo(BaseComponent):
     """A container-based component that executed the Gazebo simulator.
 
