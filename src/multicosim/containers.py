@@ -233,7 +233,11 @@ class Gazebo(BaseComponent):
         )
 
 
-class MonitoredContainerError(Exception):
+class ComponentError(Exception):
+    pass
+
+
+class MonitoredContainerError(ComponentError):
     def __init__(self, container: Container):
         super().__init__(f"Container {container.name} is no longer running")
         self.container: Container = container
@@ -291,7 +295,7 @@ def find_host_port(container: Container, container_port: int) -> int:
     raise ValueError(f"No host port mappings for container port {container_port}")
 
 
-class InternalComponentError(Exception):
+class InternalComponentError(ComponentError):
     pass
 
 
