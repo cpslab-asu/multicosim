@@ -10,7 +10,7 @@ from typing import Final, Literal, TypeAlias
 
 import click
 import lxml.etree as xml
-import sdformat14 as sdf
+import sdformat as sdf
 
 GZ_SIM_RESOURCE_PATH: Final[str] = "GZ_SIM_RESOURCE_PATH"
 
