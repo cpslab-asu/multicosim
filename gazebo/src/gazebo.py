@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import pathlib
 import signal
 import subprocess
@@ -156,22 +157,19 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element) -> None:
     cmd = " ".join(parts)
 
     with subprocess.Popen(args=cmd, shell=True, executable="/usr/bin/bash") as proc:
+        def handle(signum: int, frame: FrameType | None) -> None:
+            match signum:
+                case signal.SIGINT:
+                    logging.info("Received SIGINT")
+                case signal.SIGTERM:
+                    logging.info("Received SIGTERM")
 
-        def shutdown() -> None:
             proc.kill()
             proc.wait()
 
-        def handle(signum: int, frame: FrameType | None) -> None:
-            shutdown()
-
+        signal.signal(signal.SIGINT, handle)
         signal.signal(signal.SIGTERM, handle)
-        signal.signal(signal.SIGKILL, handle)
-
-        while proc.poll() is None:
-            try:
-                pass
-            except KeyboardInterrupt:
-                return shutdown()
+        signal.pause()
 
 
 WorldPath = click.Path(writable=True, path_type=pathlib.Path)
