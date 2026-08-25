@@ -21,6 +21,7 @@ class Config:
     world_path: pathlib.Path
     step_size: float
     headless: bool
+    run: bool = True
 
     def create_world(self, *, engine: xml.Element) -> pathlib.Path:
         with self.base_path.open("rb") as file:
@@ -138,10 +139,21 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element) -> None:
         raise RuntimeError()
 
     world = config.create_world(engine=engine)
-    cmd = "gz sim -s -r -v4"
+    parts = [
+        "gz",
+        "sim",
+        "--verbose 4",
+        "--server",
+    ]
+
+    if config.run:
+        parts.append("--run")
+
     if config.headless:
-        cmd += " --headless-rendering"
-    cmd += f" {world}"
+        parts.append("--headless-rendering")
+
+    parts.append(f"{world!s}")
+    cmd = " ".join(parts)
 
     with subprocess.Popen(args=cmd, shell=True, executable="/usr/bin/bash") as proc:
 
@@ -181,6 +193,7 @@ ModelDirPath = click.Path(exists=True, file_okay=False, path_type=pathlib.Path)
     default=[pathlib.Path("resources/models")],
 )
 @click.option("--sensor-topic", "sensor_topics", type=(str, str, str), multiple=True, default=[])
+@click.option("-r", "--run", is_flag=True)
 @click.option("--headless", is_flag=True)
 @click.option("--verbose", is_flag=True)
 def gazebo(
@@ -192,6 +205,7 @@ def gazebo(
     sensor_topics: list[tuple[str, str, str]],
     *,
     headless: bool,
+    run: bool,
     verbose: bool,
 ) -> None:
     topic_groups = group_sensor_topics(sensor_topics)
@@ -199,7 +213,13 @@ def gazebo(
     for model, topics in topic_groups.items():
         set_sensor_topics(model_dirs, model, topics)
 
-    ctx.obj = Config(base_path=base, world_path=world, step_size=step_size, headless=headless)
+    ctx.obj = Config(
+        base_path=base,
+        world_path=world,
+        step_size=step_size,
+        headless=headless,
+        run=run,
+    )
 
 
 ODESolver: TypeAlias = Literal["quick", "world"]
