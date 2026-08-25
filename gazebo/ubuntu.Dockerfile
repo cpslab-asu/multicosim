@@ -15,9 +15,9 @@ LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="Base gazebo for derived MultiCoSim gazebo images"
 LABEL org.opencontainers.image.license=BSD-3-Clause
 
-ARG GZ_VERSION=harmonic
+ARG GAZEBO_VERSION=jetty
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y gz-${GZ_VERSION} && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y gz-${GAZEBO_VERSION} && \
     rm -rf /var/lib/apt/lists/*
 
 ENV GZ_ROOT=/app
