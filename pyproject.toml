@@ -62,6 +62,7 @@ types = [
     "types-lxml>=2026.2.16",
     "types-protobuf>=7.34.1.20260518",
     "zuban>=0.7.2",
+    "pyrefly>=1.1.1",
 ]
 lint = [
     "ruff>=0.15.12",
@@ -150,8 +151,10 @@ files = [
     "src/**/*.py",
     "stubs/**/*.pyi",
     "tests/**/*.py",
-    "examples/**/*.py",
-    "gazebo/src/*.py",
-    "px4/src/*.py",
-    "ardupilot/src/*.py",
 ]
+
+[tool.pyrefly]
+preset = "strict"
+python-version = "3.10.0"
+python-interpreter-path = ".venv/bin/python"
+search-path = ["stubs"]
