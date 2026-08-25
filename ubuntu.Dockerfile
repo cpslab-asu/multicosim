@@ -20,7 +20,7 @@ LABEL org.opencontainers.image.license=BSD-3-Clause
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
-    apt-get install -y python3.10 && \
+    apt-get install -y python3 && \
     rm -rf /var/lib/apt/lists/*
 
 ENV DEBIAN_FRONTEND=
