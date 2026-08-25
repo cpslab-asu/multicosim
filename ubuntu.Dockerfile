@@ -14,8 +14,8 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/p
 
 FROM ubuntu:26.04 AS base
 
-LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/gzcm
-LABEL org.opencontainers.image.description="Base image for other GZCM images"
+LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
+LABEL org.opencontainers.image.description="Base image for other MultiCoSim images"
 LABEL org.opencontainers.image.license=BSD-3-Clause
 
 ENV DEBIAN_FRONTEND=noninteractive
