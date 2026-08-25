@@ -303,6 +303,7 @@ class InternalComponentError(ComponentError):
 class _ComponentSimulation:
     container: Container = attrs.field()
     dependencies: frozenset[ComponentId] = attrs.field()
+    exit_codes: set[int] = attrs.field()
 
 
 async def _recv(sock: zmq.asyncio.Socket, response_type: type[DataT]) -> Success[DataT] | Failure:
@@ -446,7 +447,9 @@ class Simulation(_Simulation):
                     status = child.container.wait()
 
                     # 0 -> ExitSucess, 137 -> SIGKILL, 143 -> SIGTERM
-                    if status["StatusCode"] in {0, 137, 143}:
+                    codes = child.exit_codes.union({0, 137, 143})
+
+                    if status["StatusCode"] in codes:
                         child.container.remove()
 
         if remove != "never":
@@ -457,13 +460,16 @@ class Simulation(_Simulation):
 class _Registration:
     component: BaseComponent = attrs.field()
     dependencies: frozenset[ComponentId] = attrs.field()
+    exit_codes: set[int] = attrs.field()
 
     @typing_extensions.override
     def __hash__(self) -> int:
         return hash(self.component.id)
 
     def start(self, context: Context) -> _ComponentSimulation:
-        return _ComponentSimulation(self.component.start(context), self.dependencies)
+        return _ComponentSimulation(
+            self.component.start(context), self.dependencies, self.exit_codes,
+        )
 
 
 _SimulationGenerator: typing.TypeAlias = typing.Generator[Simulation, None, None]
@@ -476,7 +482,11 @@ class Simulator(_Simulator[Context, Simulation]):
         self.components: set[_Registration] = set()
 
     def add_component(
-        self, component: BaseComponent, depends: Iterable[BaseComponent] | None = None
+        self,
+        component: BaseComponent,
+        depends: Iterable[BaseComponent] | None = None,
+        *,
+        exit_codes: set[int] | None = None,
     ) -> None:
         """Add a component to the simulation.
 
@@ -485,6 +495,8 @@ class Simulator(_Simulator[Context, Simulation]):
         component c. This set of dependencies is flattened during interaction, which means that
         components can mutually depend on each other either explicitly or transitively. Dependencies
         are only considered while interacting with component c, not during start-up or shutdown.
+        Allowed exit codes for the container can be specified in addition to the standard ones
+        (0, 137, 143).
         """
 
         if depends is not None:
@@ -492,7 +504,10 @@ class Simulator(_Simulator[Context, Simulation]):
         else:
             dependencies = frozenset()
 
-        self.components.add(_Registration(component, dependencies))
+        if exit_codes is None:
+            exit_codes = set()
+
+        self.components.add(_Registration(component, dependencies, exit_codes))
 
     @typing_extensions.override
     def start(self) -> Simulation:
