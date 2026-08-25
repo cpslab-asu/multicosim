@@ -164,7 +164,7 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element) -> None:
                 case signal.SIGTERM:
                     logging.info("Received SIGTERM")
 
-            proc.kill()
+            proc.send_signal(signum)
             proc.wait()
 
         signal.signal(signal.SIGINT, handle)
