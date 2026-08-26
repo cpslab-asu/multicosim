@@ -134,6 +134,7 @@ def group_sensor_topics(mappings: list[tuple[str, str, str]]) -> dict[str, list[
 
 
 def run_gazebo(ctx: click.Context, *, engine: xml.Element) -> None:
+    logging.basicConfig(level=logging.INFO)
     config = ctx.find_object(Config)
 
     if not config:
@@ -150,6 +151,8 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element) -> None:
 
     parts.append(f"{world!s}")
     cmd = " ".join(parts)
+
+    logging.info("Starting Gazebo with command: %s", cmd)
 
     with subprocess.Popen(args=cmd, shell=True, executable="/usr/bin/bash") as proc:
         def handle(signum: int, frame: FrameType | None) -> None:
