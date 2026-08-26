@@ -143,7 +143,7 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element) -> None:
     parts = ["gz", "sim", "-v 4", "-s"]
 
     if config.run:
-        parts.append("--run")
+        parts.append("-r")
 
     if config.headless:
         parts.append("--headless-rendering")
