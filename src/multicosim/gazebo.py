@@ -105,3 +105,4 @@ class Options:
     backend: Backend = attrs.field(factory=ODE)
     step_size: float = attrs.field(kw_only=True, default=0.001)
     world: str = attrs.field(kw_only=True, factory=namer.generate)
+    run: bool = attrs.field(kw_only=True, default=True)

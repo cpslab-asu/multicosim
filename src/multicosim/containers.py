@@ -223,6 +223,9 @@ class Gazebo(BaseComponent):
             f"--model-dir {self.model_dir}",
         ]
 
+        if self.options.run:
+            parts.append("--run")
+
         prefix = " ".join(parts)
         suffix = gazebo.backend_args(self.options.backend)
 
