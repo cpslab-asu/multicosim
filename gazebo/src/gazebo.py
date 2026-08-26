@@ -211,6 +211,9 @@ def gazebo(
     for model, topics in topic_groups.items():
         set_sensor_topics(model_dirs, model, topics)
 
+    if world.suffix != ".sdf":
+        world = world.with_suffix(".sdf")
+
     ctx.obj = Config(
         base_path=base,
         world_path=world,
