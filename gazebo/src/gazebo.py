@@ -4,6 +4,7 @@ import logging
 import pathlib
 import signal
 import subprocess
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from types import FrameType
@@ -163,11 +164,12 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element) -> None:
                     logging.info("Received SIGTERM")
 
             proc.send_signal(signum)
-            proc.wait()
 
         signal.signal(signal.SIGINT, handle)
         signal.signal(signal.SIGTERM, handle)
-        signal.pause()
+
+        exitcode = proc.wait()
+        sys.exit(exitcode)
 
 
 WorldPath = click.Path(writable=True, path_type=pathlib.Path)
