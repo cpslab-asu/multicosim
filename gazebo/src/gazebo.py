@@ -140,12 +140,7 @@ def run_gazebo(ctx: click.Context, *, engine: xml.Element) -> None:
         raise RuntimeError()
 
     world = config.create_world(engine=engine)
-    parts = [
-        "gz",
-        "sim",
-        "--verbose 4",
-        "--server",
-    ]
+    parts = ["gz", "sim", "-v 4", "-s"]
 
     if config.run:
         parts.append("--run")
