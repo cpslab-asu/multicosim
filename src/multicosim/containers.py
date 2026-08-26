@@ -53,7 +53,7 @@ from .simulations import Simulation as _Simulation
 from .simulations import Simulator as _Simulator
 
 Container: typing_extensions.TypeAlias = docker.models.containers.Container
-Remove = typing.Literal["always", "if_exit_success", "never"]
+Remove = typing.Literal["always", "if_exit_success", "if_all_succeed", "never"]
 
 
 @attrs.define()
@@ -440,12 +440,14 @@ class Simulation(_Simulation):
 
     @typing_extensions.override
     def stop(self, *, remove: Remove = "if_exit_success"):
+        to_remove: list[Container] = []
+
         for child in self.children.values():
             child.container.stop()
 
             match remove:
                 case "always":
-                    child.container.remove()
+                    to_remove.append(child.container)
                 case "never":
                     pass
                 case _:
@@ -455,9 +457,18 @@ class Simulation(_Simulation):
                     codes = child.exit_codes.union({0, 137, 143})
 
                     if status["StatusCode"] in codes:
-                        child.container.remove()
+                        to_remove.append(child.container)
 
-        if remove != "never":
+        # Exit early if we remove only if all succeed
+        if remove == "if_all_succeed" and len(to_remove) != len(self.children):
+            return
+
+        # Remove all marked containers
+        for container in to_remove:
+            container.remove()
+
+        # Remove network if no containers are left
+        if len(to_remove) == len(self.children):
             self.context.network.remove()
 
 
