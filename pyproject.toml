@@ -156,5 +156,4 @@ files = [
 [tool.pyrefly]
 preset = "strict"
 python-version = "3.10.0"
-python-interpreter-path = ".venv/bin/python"
 search-path = ["stubs"]
