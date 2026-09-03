@@ -37,6 +37,7 @@ import attrs
 import docker
 import docker.errors
 import docker.models.containers
+import docker.models.networks
 import docker.types
 import namer
 import typing_extensions
@@ -491,11 +492,28 @@ class _Registration:
 _SimulationGenerator: typing.TypeAlias = typing.Generator[Simulation, None, None]
 
 
+@attrs.define()
+class NetworkOptions:
+    name: str = attrs.field(factory=namer.generate)
+    subnet: str = attrs.field(default="0.0.0.0")
+    prefix_size: int = attrs.field(default=24)
+
+    def create(self, client: docker.DockerClient) -> docker.models.networks.Network:
+        return client.networks.create(
+            name=self.name,
+            ipam=docker.types.IPAMConfig(
+                pool_configs=[docker.types.IPAMPool(subnet=f"{self.subnet}/{self.prefix_size}")]
+            )
+        )
+
+
+
 class Simulator(_Simulator[Context, Simulation]):
     """Simulator implementation using container-based components."""
 
     def __init__(self) -> None:
         self.components: set[_Registration] = set()
+        self.network: NetworkOptions = NetworkOptions()
 
     def add_component(
         self,
@@ -539,7 +557,7 @@ class Simulator(_Simulator[Context, Simulation]):
                 )
 
         client = docker.from_env()
-        network = client.networks.create(namer.generate())
+        network = self.network.create(client)
         context = Context(client, network)
         children: dict[ComponentId, _ComponentSimulation] = {}
 
