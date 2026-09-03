@@ -1,0 +1,18 @@
+[build-system]
+requires = ["uv_build>=0.11.20,<0.12"]
+build-backend = "uv_build"
+
+[project]
+name = "roverctl"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "multicosim",
+    "apscheduler",
+    "click",
+]
+
+[tool.uv.sources]
+multicosim = { workspace = true }

@@ -7,12 +7,12 @@ import subprocess
 import threading
 
 import click
-import gz.transport13
 import gz.msgs10.pose_v_pb2 as pose_v
+import gz.transport13
 import mavsdk
 import mavsdk.mission as mission
-import multicosim.docker.firmware as fw
-import multicosim.px4 as px4
+
+from multicosim import containers, px4
 
 
 def create_mission_item(waypoint: px4.Waypoint) -> mission.MissionItem:
@@ -21,7 +21,7 @@ def create_mission_item(waypoint: px4.Waypoint) -> mission.MissionItem:
         waypoint.lon,
         waypoint.alt,
         10,
-        True,
+        True,  # noqa: FBT003
         math.nan,
         math.nan,
         mission.MissionItem.CameraAction.NONE,
@@ -34,8 +34,8 @@ def create_mission_item(waypoint: px4.Waypoint) -> mission.MissionItem:
     )
 
 
-def create_mission(config: px4.PX4Configuration) -> mission.MissionPlan:
-    return mission.MissionPlan([create_mission_item(wp) for wp in config.mission])
+def create_mission(config: px4.Configuration) -> mission.MissionPlan:
+    return mission.MissionPlan([create_mission_item(wp) for wp in config.mission.waypoints])
 
 
 def gz_model_name(vehicle: px4.Vehicle) -> str:
@@ -45,33 +45,33 @@ def gz_model_name(vehicle: px4.Vehicle) -> str:
     raise ValueError()
 
 
-def find_state(msg: pose_v.Pose_V) -> px4.State:
+def find_state(msg: pose_v.Pose_V) -> px4.Step:
     for pose in msg.pose:
         if pose.name == "x500_0":
             pose = px4.Pose(pose.position.x, pose.position.y, pose.position.z)
             time = msg.header.stamp.sec + msg.header.stamp.nsec / 1e9
 
-            return px4.State(time, pose)
+            return px4.Step(time, pose)
 
     raise ValueError()
 
 
 class Handler:
-    def __init__(self):
-        self._states: list[px4.State] = []
+    def __init__(self) -> None:
+        self._steps: list[px4.Step] = []
         self._lock = threading.Lock()
 
-    def __call__(self, msg: pose_v.Pose_V):
+    def __call__(self, msg: pose_v.Pose_V) -> None:
         with self._lock:
-            self._states.append(find_state(msg))
+            self._steps.append(find_state(msg))
 
     @property
-    def states(self) -> px4.States:
+    def history(self) -> px4.History:
         with self._lock:
-            return px4.States(self._states.copy())
+            return px4.History(list(self._steps))
 
 
-async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handler):
+async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handler) -> None:
     logger = logging.getLogger("px4.mission")
     logger.addHandler(logging.NullHandler())
     drone = mavsdk.System()
@@ -85,12 +85,14 @@ async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handle
     await drone.mission.upload_mission(plan)
 
     async for health in drone.telemetry.health():
-        armable = all([
-            health.is_home_position_ok,
-            health.is_local_position_ok,
-            health.is_global_position_ok,
-            health.is_armable,
-        ])
+        armable = all(
+            [
+                health.is_home_position_ok,
+                health.is_local_position_ok,
+                health.is_global_position_ok,
+                health.is_armable,
+            ]
+        )
 
         if armable:
             break
@@ -111,8 +113,8 @@ async def execute_mission(plan: mission.MissionPlan, world: str, handler: Handle
             break
 
 
-@fw.firmware(msgtype=px4.PX4Configuration)
-def server(msg: px4.PX4Configuration) -> px4.States:
+@containers.server(msgtype=px4.Configuration)
+def server(msg: px4.Configuration) -> px4.History:
     handler = Handler()
     mission = create_mission(msg)
     gz_model = gz_model_name(msg.vehicle)
@@ -139,16 +141,16 @@ def server(msg: px4.PX4Configuration) -> px4.States:
         process.wait()
         logger.debug("Goodbye.")
 
-    return handler.states
+    return handler.history
 
 
 @click.command("firmware")
 @click.option("--verbose", is_flag=True)
 @click.option("--port", type=int, default=5556)
-def firmware(*, verbose: bool, port: int):
+def firmware(*, verbose: bool, port: int) -> None:
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
-    
+
     server.listen(port)
 
 

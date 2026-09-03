@@ -1,4 +1,4 @@
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS build
+FROM base AS build
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -34,29 +34,24 @@ RUN python3 -m venv .venv
 RUN .venv/bin/pip install -r ./Tools/setup/requirements.txt
 RUN . .venv/bin/activate && make px4_sitl
 
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS venv
+FROM base AS venv
 
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y patch
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y patch
 
-RUN mkdir /app
 WORKDIR /app
 
 # Copy px4 program source files
-COPY ./pyproject.toml ./uv.lock mavsdk.patch ./
+COPY ./pyproject.toml ./mavsdk.patch ./
+COPY --from=multicosim ./uv.lock ./
 
-COPY --from=ghcr.io/astral-sh/uv:0.5.29 /uv /usr/bin/
-RUN uv venv --system-site-packages --python-preference only-system
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/bin/
+RUN uv venv --system-site-packages --python-preference only-system --relocatable
 RUN uv sync --frozen --no-dev
 RUN patch .venv/lib/python3.10/site-packages/mavsdk/system.py mavsdk.patch
 
-ENV MULTICOSIM_ROOT=/opt/multicosim
-RUN mkdir ${MULTICOSIM_ROOT}
-COPY --from=multicosim ./pyproject.toml ./README.md ${MULTICOSIM_ROOT}/
-COPY --from=multicosim ./src/ ${MULTICOSIM_ROOT}/src/
-RUN uv pip install --reinstall ${MULTICOSIM_ROOT}
+RUN --mount=type=bind,from=multicosim,target=/opt/multicosim uv pip install --reinstall /opt/multicosim
 
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS firmware
+FROM base AS firmware
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="MultiCoSim image with PX4 firmware"
