@@ -662,24 +662,21 @@ class Server(typing.Generic[MsgT, DataT]):
             ctx.socket(zmq.REP) as socket,
             socket.bind(f"tcp://*:{port}"),
         ):
-            logger = logging.getLogger("multicosim.program")
-            logger.addHandler(logging.NullHandler())
-            logger.debug("Waiting for configuration message...")
+            while True:
+                msg = socket.recv_pyobj()
 
-            msg = socket.recv_pyobj()
+                if self.msgtype is not None and not isinstance(msg, self.msgtype):
+                    raise TypeError(f"Unknown start message type {type(msg)}. Expected {self.msgtype}")
 
-            if self.msgtype is not None and not isinstance(msg, self.msgtype):
-                raise TypeError(f"Unknown start message type {type(msg)}. Expected {self.msgtype}")
-
-            logger.debug("Received configuration message. Running firmware...")
-
-            try:
-                success = Success(self.func(msg))
-                socket.send_pyobj(success)
-            except Exception as e:
-                failure = Failure(str(e))
-                socket.send_pyobj(failure)
-                raise e
+                try:
+                    success = Success(self.func(msg))
+                    serialized = pickle.dumps(success, protocol=pickle.HIGHEST_PROTOCOL)
+                    data = zlib.compress(serialized)
+                    socket.send_multipart([data])
+                except Exception as e:
+                    failure = Failure(str(e))
+                    socket.send_pyobj(failure)
+                    raise e
 
 
 A = typing.TypeVar("A")
