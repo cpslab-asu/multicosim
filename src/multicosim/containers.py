@@ -53,7 +53,7 @@ from .simulations import Component as _Component
 from .simulations import Simulation as _Simulation
 from .simulations import Simulator as _Simulator
 
-Container: typing_extensions.TypeAlias = docker.models.containers.Container
+RawContainer: typing_extensions.TypeAlias = docker.models.containers.Container
 Remove = typing.Literal["always", "if_exit_success", "if_all_succeed", "never"]
 
 
@@ -67,7 +67,7 @@ class Context:
     """
 
     client: DockerClient
-    network: Network
+    network: Network | RawContainer
 
 
 @attrs.frozen(eq=True, hash=True)
@@ -84,6 +84,24 @@ def _create_mount(source: pathlib.Path, target: str) -> docker.types.Mount:
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(resolved))
 
     return docker.types.Mount(type="bind", source=str(resolved), target=target)
+
+
+@attrs.frozen()
+class Container(_Simulation):
+    inner: RawContainer
+
+    def name(self) -> str:
+        while self.inner.name is None:
+            self.inner.reload()
+
+        return self.inner.name
+
+    @typing_extensions.override
+    def stop(self):
+        self.inner.stop()
+
+    def remove(self):
+        self.inner.remove()
 
 
 @attrs.define()
@@ -105,6 +123,8 @@ class ContainerOptions:
             tty=self.tty,
             detach=True,
         )
+
+        return Container(container)
 
 
 @attrs.frozen()
@@ -244,17 +264,17 @@ class ComponentError(Exception):
 
 
 class MonitoredContainerError(ComponentError):
-    def __init__(self, container: Container):
+    def __init__(self, container: RawContainer):
         super().__init__(f"Container {container.name} is no longer running")
-        self.container: Container = container
+        self.container: RawContainer = container
 
 
 @attrs.define()
 class ContainerFailure:
-    container: Container
+    container: RawContainer
 
 
-async def _ensure_running(containers: Iterable[Container]) -> ContainerFailure:
+async def _ensure_running(containers: Iterable[RawContainer]) -> ContainerFailure:
     containers = list(containers)
     logger = logging.getLogger("multicosim.containers.monitor")
     logger.addHandler(logging.NullHandler())
@@ -271,7 +291,7 @@ async def _ensure_running(containers: Iterable[Container]) -> ContainerFailure:
         await asyncio.sleep(0)
 
 
-async def _wait_for_exit(container: Container) -> None:
+async def _wait_for_exit(container: RawContainer) -> None:
     logger = logging.getLogger("multicosim.containers.waiting")
     logger.addHandler(logging.NullHandler())
 
@@ -286,7 +306,7 @@ async def _wait_for_exit(container: Container) -> None:
         await asyncio.sleep(0)
 
 
-def find_host_port(container: Container, container_port: int) -> int:
+def find_host_port(container: RawContainer, container_port: int) -> int:
     container.reload()
     port_str = f"{container_port}/tcp"
     mappings = container.ports[port_str]
@@ -361,11 +381,11 @@ class Simulation(_Simulation):
 
         dependencies = self._dependencies_for(component)
         monitor_task = asyncio.create_task(
-            _ensure_running(self.children[dep].container for dep in dependencies)
+            _ensure_running(self.children[dep].container.inner for dep in dependencies)
         )
 
         container = self.children[component.id].container
-        wait_task = asyncio.create_task(_wait_for_exit(container))
+        wait_task = asyncio.create_task(_wait_for_exit(container.inner))
         done, pending = await asyncio.wait(
             [monitor_task, wait_task], return_when=asyncio.FIRST_COMPLETED
         )
@@ -406,10 +426,10 @@ class Simulation(_Simulation):
 
         dependencies = self._dependencies_for(component).union({component.id})
         monitor_task = asyncio.create_task(
-            _ensure_running(self.children[dep].container for dep in dependencies)
+            _ensure_running(self.children[dep].container.inner for dep in dependencies)
         )
 
-        host_port = find_host_port(self.children[component.id].container, component.port)
+        host_port = find_host_port(self.children[component.id].container.inner, component.port)
 
         with (
             zmq.asyncio.Context() as ctx,
@@ -441,24 +461,24 @@ class Simulation(_Simulation):
 
     @typing_extensions.override
     def stop(self, *, remove: Remove = "if_exit_success"):
-        to_remove: list[Container] = []
+        to_remove: list[RawContainer] = []
 
         for child in self.children.values():
             child.container.stop()
 
             match remove:
                 case "always":
-                    to_remove.append(child.container)
+                    to_remove.append(child.container.inner)
                 case "never":
                     pass
                 case _:
-                    status = child.container.wait()
+                    status = child.container.inner.wait()
 
                     # 0 -> ExitSucess, 137 -> SIGKILL, 143 -> SIGTERM
                     codes = child.exit_codes.union({0, 137, 143})
 
                     if status["StatusCode"] in codes:
-                        to_remove.append(child.container)
+                        to_remove.append(child.container.inner)
 
         # Exit early if we remove only if all succeed
         if remove == "if_all_succeed" and len(to_remove) != len(self.children):
@@ -568,7 +588,7 @@ class Simulator(_Simulator[Context, Simulation]):
             return Simulation(context, children)
         except docker.errors.DockerException as e:
             for s in children.values():
-                s.container.kill()
+                s.container.inner.kill()
 
             raise e
 
