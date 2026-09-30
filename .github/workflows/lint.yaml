@@ -1,0 +1,44 @@
+name: Lint
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6 # Use setup-python to speed up executions instead of having uv download python
+        id: py
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          python-version: ${{ steps.py.outputs.python-version }} # Setup uv using python version installed in previous step
+      - name: Install dependencies
+        run: uv sync --frozen --only-group lint
+      - name: Linting
+        run: uv run ruff check --diff
+      - name: Formatting
+        run: uv run ruff format --check --diff
+
+  types:
+    runs-on: ubuntu-latest
+    env:
+      UV_NO_DEV: "True"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        id: py
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          python-version: ${{ steps.py.outputs.python-version }}
+      - name: Install type-checking dependencies
+        run: uv sync --frozen --group types
+      - name: Check types with MyPy
+        run: uv run mypy --pretty
+      - name: Check types with Zuban
+        run: uv run zuban check --pretty # Verify type checking with alternative implementation. One day hope to confidently replace mypy

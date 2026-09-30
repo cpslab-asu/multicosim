@@ -1,0 +1,2 @@
+class Boolean:
+    data: bool

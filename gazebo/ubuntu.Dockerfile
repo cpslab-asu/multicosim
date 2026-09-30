@@ -1,21 +1,23 @@
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS venv
+FROM base AS venv
 
 WORKDIR /app
 
-COPY ./pyproject.toml ./uv.lock ./
-RUN --mount=from=ghcr.io/astral-sh/uv:0.5.29,source=/uv,target=/bin/uv \
+COPY ./pyproject.toml ./
+COPY --from=multicosim ./uv.lock ./
+
+RUN --mount=from=ghcr.io/astral-sh/uv:latest,source=/uv,target=/bin/uv \
     uv venv --system-site-packages --relocatable && \
     uv sync --python-preference only-system --frozen --no-dev
 
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS gazebo
+FROM base AS gazebo
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="Base gazebo for derived MultiCoSim gazebo images"
 LABEL org.opencontainers.image.license=BSD-3-Clause
 
-ARG GZ_VERSION=harmonic
+ARG GAZEBO_VERSION=jetty
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y gz-${GZ_VERSION} && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y gz-${GAZEBO_VERSION} && \
     rm -rf /var/lib/apt/lists/*
 
 ENV GZ_ROOT=/app
@@ -23,11 +25,14 @@ COPY <<'EOF' /usr/local/bin/gazebo
 #!/usr/bin/bash
 /app/.venv/bin/python3 /app/src/gazebo.py $@
 EOF
+RUN chmod +x-w /usr/local/bin/gazebo
 
 COPY --from=venv /app ${GZ_ROOT}
 COPY ./src ${GZ_ROOT}/src
 COPY ./resources ${GZ_ROOT}/resources
 WORKDIR /app
 
-RUN chmod +x-w /usr/local/bin/gazebo
+ENV GAZEBO_VERSION="${GAZEBO_VERSION}"
+ENV GZ_SIM_RESOURCE_PATH=/app/resources/worlds
+
 CMD ["/usr/local/bin/gazebo"]

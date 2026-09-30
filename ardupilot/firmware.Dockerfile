@@ -1,18 +1,18 @@
 #######################
 # INITIAL BUILD SECTION
 #######################
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS build
+FROM base AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y git
 
 # Create ardupilot directory
-RUN mkdir /opt/ardupilot 
+RUN mkdir /opt/ardupilot
 WORKDIR /opt/ardupilot
 
 # Now grab ArduPilot from GitHub
 RUN git clone https://github.com/ArduPilot/ardupilot .
- 
+
 # Now start build instructions from http://ardupilot.org/dev/docs/setting-up-sitl-on-linux.html
 RUN git submodule update --init --recursive
 
@@ -22,35 +22,30 @@ COPY mods/ardupilot/SIM_JSON.h libraries/SITL/
 ####################
 # VENV BUILD SECTION
 ####################
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS venv
+FROM base AS venv
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV MULTICOSIM_ROOT=/opt/multicosim
 ENV APP_ROOT=/app
 
 # Install python3
 RUN apt-get update && apt-get install -y python3
 
 # Set multicosim and app directoies
-RUN mkdir ${MULTICOSIM_ROOT}
-RUN mkdir ${APP_ROOT}
 WORKDIR ${APP_ROOT}
 
 # Copy ardupilot image files
 COPY ./pyproject.toml ./uv.lock ./
-COPY --from=ghcr.io/astral-sh/uv:0.5.29  /uv /usr/bin/
+COPY --from=ghcr.io/astral-sh/uv:latest  /uv /usr/bin/
 RUN uv venv --system-site-packages --seed --python-preference only-system
 RUN uv sync --frozen --no-dev
 
 # Copy multicosim files
-COPY --from=multicosim ./pyproject.toml ./README.md ${MULTICOSIM_ROOT}/
-COPY --from=multicosim ./src/ ${MULTICOSIM_ROOT}/src/
-RUN uv pip install --reinstall ${MULTICOSIM_ROOT}
+RUN --mount=type=bind,from=multicosim,target=/opt/multicosim uv pip install --reinstall /opt/multicosim
 
 #######################
-# FIRWARE BUILD SECTION
+# FIRMWARE BUILD SECTION
 #######################
-FROM ghcr.io/cpslab-asu/multicosim/base:22.04 AS firmware
+FROM base AS firmware
 
 LABEL org.opencontainers.image.source=https://github.com/cpslab-asu/multicosim
 LABEL org.opencontainers.image.description="MultiCoSim image with ArduPilot firmware"
@@ -65,7 +60,7 @@ RUN groupadd ${USER_NAME} --gid 1000\
     && useradd -l -m ${USER_NAME} -u 1000 -g 1000 -s /bin/bash
 
 # Install prerequisites
-RUN apt-get update && apt-get install --no-install-recommends -y \ 
+RUN apt-get update && apt-get install --no-install-recommends -y \
     sudo \
     lsb-release \
     tzdata \
@@ -101,7 +96,7 @@ RUN SKIP_AP_GRAPHIC_ENV=1 SKIP_AP_COV_ENV=1 SKIP_AP_GIT_CHECK=1 \
 # Continue build instructions from https://github.com/ArduPilot/ardupilot/blob/master/BUILD.md
 RUN ./waf configure --board sitl
 RUN ./waf copter
-# RUN ./waf rover 
+# RUN ./waf rover
 # RUN ./waf plane
 # RUN ./waf sub
 
@@ -118,7 +113,7 @@ ENV BUILDLOGS=/tmp/buildlogs
 RUN sudo apt-get clean \
     && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Set max cache size    
+# Set max cache size
 ENV CCACHE_MAXSIZE=1G
 
 #######################
@@ -135,7 +130,7 @@ COPY --from=venv --chown=${USER_NAME}:${USER_NAME} /app ${APP_ROOT}
 WORKDIR ${APP_ROOT}
 COPY --chown=${USER_NAME}:${USER_NAME} ./src/ ./src/
 
-# Create run script 
+# Create run script
 COPY <<'EOF' /usr/local/bin/firmware
 #!/usr/bin/bash
 /app/.venv/bin/python3 /app/src/firmware.py $@
