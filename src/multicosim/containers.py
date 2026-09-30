@@ -116,9 +116,13 @@ class ContainerOptions:
     name: str | None = attrs.field(default=None)
 
     def start(self, context: Context) -> Container:
-        return context.client.containers.run(
+        while context.network.name is None:
+            context.network.reload()
+
+        container = context.client.containers.run(
             image=self.image,
             command=self.command,
+            network=context.network.name,
             name=self.name,
             ports={f"{port}/tcp": None for port in self.ports},
             mounts=[_create_mount(file, target) for file, target in self.files.items()],
