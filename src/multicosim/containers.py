@@ -27,8 +27,10 @@ import errno
 import logging
 import os
 import pathlib
+import pickle
 import typing
 import uuid
+import zlib
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
@@ -333,7 +335,9 @@ class _ComponentSimulation:
 
 
 async def _recv(sock: zmq.asyncio.Socket, response_type: type[DataT]) -> Success[DataT] | Failure:
-    obj = await sock.recv_pyobj()
+    data, = await sock.recv_multipart()
+    serialized = zlib.decompress(data)
+    obj = pickle.loads(serialized)
 
     if isinstance(obj, Failure):
         return obj
